@@ -1,0 +1,6 @@
+# Dépôt VSCB : seuls les fichiers publiés sur GitHub Pages sont versionnés
+/*
+!/.gitignore
+!/calendrier_vscb_2026-2027.html
+!/index.html
+!/README.md
