@@ -29,9 +29,6 @@
   header .badges{margin-top:5px;display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:64px;opacity:1;transition:max-height .28s ease,opacity .18s ease,margin-top .28s ease}
   header.folded .badges{max-height:0;opacity:0;margin-top:0}
   .hbadge{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:2px 8px;border-radius:99px;font-size:.72rem;white-space:nowrap}
-  #recBadge{background:#c0392b;border-color:#8f2418;color:#fff;font-weight:600}
-  .recInfo{margin:4px 0 8px;font-size:.85rem;color:#8f2418;background:#fdecea;border:1px solid #f3c2ba;border-radius:8px;padding:6px 10px}
-  .mapbtn.recOn{border-color:#c0392b;background:#c0392b;color:#fff;font-weight:600}
   .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 2px}
   /* Barre fixe (recherche + boutons + libellé de résultat) — sous l'en-tête */
   .topbar{position:sticky;top:var(--hdrH,72px);z-index:40;background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.65);padding-top:10px;padding-bottom:6px;box-shadow:0 8px 14px -10px rgba(20,30,45,.22);margin-bottom:4px}
@@ -212,10 +209,10 @@
     <div class="sub">Planning des sorties · 4/10/2026 → 28/9/2027</div>
     <div class="badges">
       <span class="hbadge" id="horairesBadge"></span>
-      <span class="hbadge" id="recBadge" style="display:none;cursor:pointer;font-weight:600" onclick="voirRec()" title="Enregistrement GPS en cours — cliquez pour voir la fiche du circuit">🔴 0 km</span>
     </div>
   </div>
 </header>
+<input type="file" id="gpxImport" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none">
 
 <main class="wrap">
   <div id="topbar" class="topbar">
@@ -421,7 +418,6 @@ function openDay(iso, sansHisto){
   tb.classList.add("mode-circ");
   initCircBar();
   if (!sansHisto) pousserVue({ vue: "circ", iso });
-  reattacheRec();                                        // recâble l'enregistrement GPS en cours sur la fiche reconstruite
   window.scrollTo({ top: 0 });
 }
 // ---- Barre du haut en vue circuit : sélection du circuit + Tracé GPX / Position / Roadbook / Retour ----
@@ -557,8 +553,9 @@ function carteCircuit(ev, c, i, iso, avecDate){
       <div class="mapbar">
         ${c.geo && c.geo.length ? `<button class="mapbtn" onclick="toggleMap(this, '${iso}', ${i})">🗺️ Tracé GPX</button>
         <button class="mapbtn" onclick="showPosition(this)">📍 Position</button>
-        <button class="mapbtn" onclick="buildRoadbook('${iso}', ${i})">🧭 Roadbook</button>` : ""}
-        <button class="mapbtn" onclick="basculeEnregistrement(this)" title="Enregistrer le parcours réellement roulé au GPS (version en ligne uniquement)">🔴 Démarrer le parcours</button>
+        <button class="mapbtn" onclick="buildRoadbook('${iso}', ${i})">🧭 Roadbook</button>
+        ${IMPORTS[tk(iso, c)] ? `<button class="mapbtn" onclick="annuleImport('${iso}', ${i})" title="Retrouver le GPX officiel du club">♻️ Tracé officiel</button>` : ""}
+        <button class="mapbtn" onclick="importerGpx('${iso}', ${i})" title="Remplacer ce tracé par un parcours roulé (GPX exporté d'une appli type Strava)">📥 Importer un GPX</button>` : ""}
       </div>
       <div class="mapholder" data-iso="${iso}" data-i="${i}" style="display:none"></div>
     </div>`;
@@ -616,12 +613,11 @@ async function downloadGpx(iso, i){
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   alert("Le fichier GPX « " + t.f + " » a été enregistré dans votre dossier « Téléchargements ».\n\n(La fenêtre de choix du dossier n'est pas disponible ici — votre navigateur la refuse pour les fichiers locaux.)");
 }
-// ---- Enregistrement GPS d'un parcours roulé (version en ligne HTTPS uniquement) ----
-// bouton 🔴 Démarrer → ⏹ Arrêter → fichier GPX téléchargeable (remplaçable via le pipe GPX)
-const REC = { r: null };                 // enregistrement en cours (singleton)
-const REC_MIN_M = 8;                     // distance mini entre 2 points gardés (m)
-const REC_MIN_S = 15;                    // durée mini entre 2 points gardés (s)
-const REC_VMAX = 25;                     // vitesse maxi plausible (m/s ≈ 90 km/h)
+// ---- Import d'un GPX roulé (exporté d'une appli type Strava / enregistreur du
+//      téléphone) : remplace le tracé officiel du circuit sur cet appareil,
+//      mémorisé entre les visites et réversible (♻️ Tracé officiel) ----
+const IMPORTS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_gpx_roule") || "{}") || {}; } catch (e) { return {}; } })();
+let importEnCours = null;   // {iso, i} : circuit visé par le bouton 📥 en attente du fichier
 
 function distH(a, b){                    // distance haversine en mètres entre 2 points [lat,lon]
   const R = 6371000, rad = Math.PI/180;
@@ -630,183 +626,121 @@ function distH(a, b){                    // distance haversine en mètres entre 
   return 2*R*Math.asin(Math.sqrt(s));
 }
 
-function basculeEnregistrement(btn){
-  const card = btn.closest(".cir");
-  const iso = card.dataset.iso, i = Number(card.dataset.i);
-  if (REC.r && REC.r.watchId != null) {
-    if (REC.r.iso === iso && REC.r.i === i) { arreterRec(); return; }
-    alert("🔴 Un enregistrement est déjà en cours (circuit " + REC.r.lab + ").\nArrêtez-le d'abord avec son bouton ⏹ ou son badge 🔴 dans le bandeau du haut.");
+function importerGpx(iso, i){
+  importEnCours = { iso, i };
+  const inp = document.getElementById("gpxImport");
+  inp.value = "";
+  inp.click();
+}
+
+document.getElementById("gpxImport").addEventListener("change", e => {
+  const f = e.target.files[0], cible = importEnCours; importEnCours = null;
+  if (!f || !cible) return;
+  f.text().then(txt => importerGpxTexte(txt, f.name, cible));
+});
+
+function importerGpxTexte(txt, nom, cible){
+  let doc;
+  try { doc = new DOMParser().parseFromString(txt, "text/xml"); } catch (e) {}
+  if (!doc || doc.getElementsByTagName("parsererror").length) {
+    alert("⚠️ Fichier « " + nom + " » illisible (GPX attendu).");
     return;
   }
-  demarrerRec(btn, iso, i);
-}
-
-function demarrerRec(btn, iso, i){
-  if (!window.isSecureContext || !navigator.geolocation) {
-    alert("📍 L'enregistrement GPS n'est possible que sur la version en ligne du calendrier :\nhttps://ppccoder.github.io/vscb-circuits/\n\n(Le navigateur refuse la géolocalisation depuis un fichier local.)");
+  const bruts = doc.getElementsByTagName("trkpt");
+  if (!bruts.length) {
+    alert("⚠️ Aucun point de trace (trkpt) dans « " + nom + " ».\n\nExportez bien le parcours au format GPX depuis votre appli.");
     return;
   }
-  const c = byISO[iso].circuits[i], card = btn.closest(".cir");
-  REC.r = { iso, i, lab: c.label, pts: [], km: 0, t0: Date.now(), last: null,
-            btn, holder: card.querySelector(".mapholder"), info: null, watchId: null, poly: null };
-  btn.textContent = "⏹ Arrêter le parcours";
-  btn.classList.add("recOn");
-  const info = document.createElement("div");
-  info.className = "recInfo";
-  info.textContent = "🔴 Enregistrement en cours — 0 km · 0 min · 0 point GPS";
-  btn.closest(".mapbar").after(info);
-  REC.r.info = info;
-  majRecBadge(); reserveRec(REC.r);
-  REC.r.watchId = navigator.geolocation.watchPosition(pointRec, errRec,
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
-  alert("🔴 Enregistrement démarré.\n\nGardez cette page ouverte pendant la sortie (l'écran peut s'éteindre).\nLe badge 🔴 du bandeau du haut affiche la distance ; cliquez dessus pour revenir à la fiche.\nAppuyez sur ⏹ à l'arrivée pour récupérer le fichier GPX.");
-}
-
-function pointRec(pos){
-  const r = REC.r; if (!r || r.watchId == null) return;
-  const la = pos.coords.latitude, lo = pos.coords.longitude, ac = pos.coords.accuracy, t = pos.timestamp;
-  if (ac > 40) return;                                     // point trop imprécis : ignoré
-  const d = r.last ? distH([r.last.lat, r.last.lon], [la, lo]) : 0;
-  const dt = r.last ? (t - r.last.t)/1000 : 0;
-  if (r.last && dt > 0 && d/dt > REC_VMAX) return;          // saut irréaliste (tunnel, parasite) : ignoré
-  if (r.last && d < REC_MIN_M && (t - r.last.t) < REC_MIN_S*1000) return;  // pas assez neuf : ignoré
-  r.km += d;
-  const p = { lat: la, lon: lo, ele: pos.coords.altitude, t };
-  r.pts.push(p); r.last = p;
-  dessineRec(r.holder); majRecBadge();
-  const s = Math.floor((Date.now() - r.t0)/1000);
-  r.info.textContent = "🔴 Enregistrement en cours — " + (r.km/1000).toFixed(1).replace(".", ",") + " km · "
-    + Math.floor(s/60) + " min " + (s%60) + " s · " + r.pts.length + " points GPS";
-  if (r.pts.length % 20 === 0) reserveRec(r);
-}
-
-function errRec(err){
-  if (!REC.r) return;
-  const msg = err.code === 1
-    ? "🔴 Enregistrement interrompu : l'accès à la position a été REFUSÉ.\n\nAutorisez la localisation pour ce site dans les réglages du navigateur (⚙️ → Site → Position), puis relancez."
-    : err.code === 2
-      ? "🔴 Enregistrement interrompu : position momentanément indisponible (réseau, GPS coupé)."
-      : "🔴 Enregistrement interrompu : délai d'attente de la position dépassé.";
-  alert(msg);
-  stopperRec(false);
-}
-
-function dureeRec(r){
-  const s = Math.floor((Date.now() - r.t0)/1000);
-  return Math.floor(s/60) + " min " + (s%60) + " s";
-}
-
-function dessineRec(holder){             // trace le parcours roulé sur la carte ouverte (polyline rouge pointillée)
-  const r = REC.r; if (!r || !holder || r.holder !== holder || !window.L) return;
-  const st = holder._vscb; if (!st || !st.map) return;
-  if (r.poly) { try { st.map.removeLayer(r.poly); } catch (e) {} }
-  r.poly = L.polyline(r.pts.map(p => [p.lat, p.lon]), { color: "#c0392b", weight: 4, dashArray: "6 6" }).addTo(st.map);
-}
-
-function majRecBadge(){
-  const b = document.getElementById("recBadge"); if (!b) return;
-  if (!REC.r) { b.style.display = "none"; return; }
-  b.style.display = "";
-  b.textContent = "🔴 " + (REC.r.km/1000).toFixed(1).replace(".", ",") + " km";
-}
-
-function voirRec(){ if (REC.r) openDay(REC.r.iso); }   // badge 🔴 → fiche du circuit en cours
-
-function reserveRec(r){                  // sauvegarde de secours (localStorage) toutes les ~20 points
-  try {
-    localStorage.setItem("vscb_rec_en_cours", JSON.stringify(
-      { iso: r.iso, i: r.i, lab: r.lab, km: +(r.km/1000).toFixed(2), pts: r.pts.length, t0: r.t0 }));
-  } catch (e) {}
-}
-
-function arreterRec(){ stopperRec(true); }
-
-function stopperRec(avecGpx){
-  const r = REC.r; if (!r) return;
-  if (r.watchId != null) { navigator.geolocation.clearWatch(r.watchId); r.watchId = null; }
-  if (r.btn) { r.btn.textContent = "🔴 Démarrer le parcours"; r.btn.classList.remove("recOn"); }
-  if (r.info) { try { r.info.remove(); } catch (e) {} }
-  REC.r = null; majRecBadge();
-  try { localStorage.removeItem("vscb_rec_en_cours"); } catch (e) {}
-  if (!avecGpx) return;
-  if (r.pts.length < 2) {
-    alert("⚠️ Trop peu de points GPS (" + r.pts.length + ") — rien à enregistrer.\n\nVérifiez que la localisation est autorisée et que le signal GPS est bon, puis relancez.");
-    return;
+  const pts = [];
+  for (const p of bruts) {
+    const la = parseFloat(p.getAttribute("lat")), lo = parseFloat(p.getAttribute("lon"));
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    const noe = p.getElementsByTagName("ele")[0];
+    const ele = noe ? parseFloat(noe.textContent) : NaN;
+    pts.push([+la.toFixed(6), +lo.toFixed(6), isFinite(ele) ? ele : null]);
   }
-  const nom = "ROULE_C" + String(r.lab).replace(/[^\w.-]/g, "_") + "_" + r.iso + ".gpx";
-  const gpx = buildGpxRec(r, nom);
-  try { localStorage.setItem("vscb_dernier_gpx_roule", gpx); } catch (e) {}
-  telechargerTexte(gpx, nom).then(() => {
-    alert("✅ Parcours enregistré !\n\nDistance : " + (r.km/1000).toFixed(1).replace(".", ",") + " km\nDurée : " + dureeRec(r)
-      + "\nPoints GPS : " + r.pts.length + "\n\nFichier GPX : « " + nom + " »\n(Ce tracé roulé pourra remplacer un GPX officiel du calendrier.)");
-  });
-}
-
-async function telechargerTexte(txt, nom){   // même pattern que downloadGpx : fenêtre de choix puis repli Téléchargements
-  try {
-    if (window.showSaveFilePicker) {
-      const h = await window.showSaveFilePicker({
-        suggestedName: nom,
-        types: [{ description: "Fichier GPX", accept: { "application/gpx+xml": [".gpx"] } }]
-      });
-      const w = await h.createWritable();
-      await w.write(new Blob([txt], { type: "application/gpx+xml" })); await w.close();
-      return nom;
-    }
-  } catch (e) {
-    if (e && e.name === "AbortError") return nom;        // fenêtre annulée : on ne propose pas le repli
+  if (pts.length < 2) { alert("⚠️ Trace trop courte dans « " + nom + " »."); return; }
+  // altitudes manquantes : recopie de la dernière connue (profil utilisable quel que soit l'export)
+  let prec = null, avecEle = false;
+  for (const p of pts) { if (p[2] == null) p[2] = prec; else { prec = p[2]; avecEle = true; } }
+  if (!avecEle) { for (const p of pts) p[2] = 0; prec = 0; }
+  // distance, dénivelé positif, altitude mini/maxi
+  let km = 0, asc = 0, min = 1e9, max = -1e9;
+  for (let j = 0; j < pts.length; j++) {
+    if (j) km += distH(pts[j-1], pts[j]) / 1000;
+    const e = pts[j][2];
+    if (e < min) min = e; if (e > max) max = e;
+    if (j && e > pts[j-1][2]) asc += e - pts[j-1][2];
   }
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([txt], { type: "application/gpx+xml" }));
-  a.download = nom;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  alert("Le fichier « " + nom + " » a été enregistré dans votre dossier « Téléchargements ».");
-  return nom;
+  // décimation si l'export est très dense (limite de stockage du téléphone)
+  const MAXPTS = 2500;
+  let garder = pts;
+  if (pts.length > MAXPTS) {
+    const pas = Math.ceil(pts.length / MAXPTS);
+    garder = pts.filter((p, j) => j % pas === 0 || j === pts.length - 1);
+  }
+  const c = byISO[cible.iso] && byISO[cible.iso].circuits[cible.i];
+  if (!c) return;
+  const key = tk(cible.iso, c), t = TRACKS[key];
+  if (!t) { alert("⚠️ Ce circuit n'a pas de tracé officiel à remplacer."); return; }
+  if (!confirm("Remplacer le tracé du circuit " + c.label + " par le parcours roulé de « " + nom + " » ?\n\n"
+    + "Parcours roulé : " + km.toFixed(1).replace(".", ",") + " km\nTracé du club : " + t.km + " km\n\n"
+    + "Le remplacement est mémorisé sur cet appareil (carte, profil, roadbook, GPX téléchargeable) ; le bouton ♻️ Tracé officiel permet de revenir en arrière.")) return;
+  appliqueImport(key, { pts: garder, km, asc: Math.round(asc), min: Math.round(min), max: Math.round(max), iso: cible.iso, i: cible.i, nom });
+  try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); }
+  catch (e) { alert("⚠️ Mémoire du téléphone saturée : le remplacement ne tiendra que pour cette session."); }
+  majApresImport(cible.iso, cible.i);
+  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + t.km + " km (club).\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club.");
 }
 
-function buildGpxRec(r, nom){            // GPX 1.1 du parcours roulé, altitude lissée (moyenne glissante ±2)
-  const eles = r.pts.map(p => p.ele);
-  const titre = "Parcours roulé — Circuit " + r.lab + " — " + (r.km/1000).toFixed(1).replace(".", ",") + " km — " + r.iso;
-  const trkpts = r.pts.map((p, j) => {
-    let ele = "";
-    if (p.ele != null) {
-      let s = 0, n = 0;
-      for (let k = Math.max(0, j-2); k <= Math.min(eles.length-1, j+2); k++)
-        if (eles[k] != null) { s += eles[k]; n++; }
-      ele = "<ele>" + (s/n).toFixed(1) + "</ele>";
-    }
-    return '        <trkpt lat="' + p.lat.toFixed(6) + '" lon="' + p.lon.toFixed(6) + '">' + ele
-      + "<time>" + new Date(p.t).toISOString() + "</time></trkpt>";
-  }).join("\n");
-  return '<?xml version="1.0" encoding="UTF-8"?>\n'
-    + '<gpx version="1.1" creator="VSCB calendrier (enregistrement GPS du parcours)" xmlns="http://www.topografix.com/GPX/1/1">\n'
-    + '  <metadata>\n    <name>' + escX(nom.replace(/\.gpx$/, "")) + '</name>\n'
-    + '    <desc>Club : Vélo Sport du Club de Beauvoir. ' + escX(titre) + '.</desc>\n'
-    + '    <time>' + new Date(r.pts[0].t).toISOString() + '</time>\n  </metadata>\n'
-    + '  <trk>\n    <name>' + escX("Roulé — Circuit " + r.lab) + '</name>\n'
-    + '    <trkseg>\n' + trkpts + '\n    </trkseg>\n  </trk>\n</gpx>\n';
+function appliqueImport(key, d){         // remplace tracé + km + profil en mémoire
+  const t = TRACKS[key]; if (!t) return false;
+  const c = byISO[d.iso] && byISO[d.iso].circuits[d.i];
+  if (!t._officiel) t._officiel = { pts: t.pts, km: t.km, asc: t.asc, min: t.min, max: t.max,
+                                    full: FULLPTS[key] || null, ckm: c ? c.km : null };
+  t.pts = d.pts; FULLPTS[key] = d.pts;
+  t.km = Math.round(d.km * 10) / 10;
+  t.asc = d.asc; t.min = d.min; t.max = d.max;
+  if (c) c.km = t.km;
+  IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom };
+  return true;
 }
 
-function reattacheRec(){                 // après reconstruction des fiches (openDay / pile Vent), recâble bouton + info
-  const r = REC.r; if (!r) return;
-  const card = document.querySelector('#circView .cir[data-iso="' + r.iso + '"][data-i="' + r.i + '"]');
+function restaurerImports(){             // au chargement de la page : ré-applique les imports mémorisés
+  for (const key in IMPORTS) {
+    if (!TRACKS[key]) { delete IMPORTS[key]; continue; }
+    appliqueImport(key, IMPORTS[key]);
+  }
+  try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
+}
+
+function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du club
+  const c = byISO[iso] && byISO[iso].circuits[i]; if (!c) return;
+  const key = tk(iso, c), t = TRACKS[key];
+  if (!t || !t._officiel) return;
+  t.pts = t._officiel.pts; t.km = t._officiel.km; t.asc = t._officiel.asc;
+  t.min = t._officiel.min; t.max = t._officiel.max;
+  if (t._officiel.full) FULLPTS[key] = t._officiel.full;
+  if (c && t._officiel.ckm != null) c.km = t._officiel.ckm;
+  delete IMPORTS[key];
+  try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
+  majApresImport(iso, i);
+  alert("♻️ Tracé officiel du club restauré.");
+}
+
+function majApresImport(iso, i){         // km affiché + referme la carte ouverte (rebâtie au prochain tracé)
+  const card = document.querySelector('#circView .cir[data-iso="' + iso + '"][data-i="' + i + '"]');
   if (card) {
-    const btn = card.querySelector('button[onclick*="basculeEnregistrement"]');
+    const c = byISO[iso].circuits[i];
+    const k = card.querySelector("h4 .km"); if (k) k.textContent = c.km + " km";
     const holder = card.querySelector(".mapholder");
-    if (btn) { btn.textContent = "⏹ Arrêter le parcours"; btn.classList.add("recOn"); r.btn = btn; }
-    r.holder = holder; r.poly = null;
-    const old = card.querySelector(".recInfo");
-    if (old) { try { old.remove(); } catch (e) {} }
-    const info = document.createElement("div");
-    info.className = "recInfo";
-    card.querySelector(".mapbar").after(info);
-    r.info = info;
-    r.info.textContent = "🔴 Enregistrement en cours — " + (r.km/1000).toFixed(1).replace(".", ",") + " km · "
-      + dureeRec(r) + " · " + r.pts.length + " points GPS";
-  } else {                               // fiche non affichée (autre écran) : la fiche courante n'est pas la bonne
-    if (r.btn) { r.btn = null; r.holder = null; r.info = null; }
+    if (holder && holder.style.display === "block") {
+      holder.style.display = "none";
+      const tb = card.querySelector(".mapbar .mapbtn");
+      if (tb && tb.textContent.indexOf("Masquer") >= 0) tb.textContent = "🗺️ Tracé GPX";
+    }
   }
+  const lv = document.getElementById("listView"); if (lv) lv.innerHTML = "";   // reconstruite à la prochaine ouverture
 }
 
 const COMPASS = "N NNE NE ENE E ESE SE SSE S SSO SO OSO O ONO NO NNO".split(" ");
@@ -1004,7 +938,6 @@ function toggleMap(btn, iso, i){
   map.on("mousemove", e => posCurseur(distCarte(e.latlng)));
   map.on("click", e => posCurseur(distCarte(e.latlng)));
   holder._vscb = { map, posCurseur, distCarte };   // accessible aux boutons de communes du circuit
-  dessineRec(holder);                             // enregistrement GPS en cours : tracer le parcours roulé
 }
 
 
@@ -1640,7 +1573,6 @@ function ouvrirSelVent(sansHisto){
   tb.classList.add("mode-circ");
   initCircBar();
   if (!sansHisto) pousserVue({ vue: "pile" });
-  reattacheRec();                                        // recâble l'enregistrement GPS en cours sur la fiche reconstruite
   window.scrollTo({ top: 0 });
 }
 (function buildRose(){
@@ -1698,6 +1630,7 @@ setHdrH();
   window.addEventListener("scroll", onScroll, { passive: true });
 })();
 
+restaurerImports();                      // ré-applique les GPX roulés importés (mémorisés) AVANT l'affichage
 buildList();
 renderMonth();
 
