@@ -763,7 +763,9 @@ function importerGpxTexte(txt, nom, cible){
   let usage = 0;
   try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) usage += (localStorage.getItem(k) || "").length; } catch (e3) {}
   alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + kmClub + " km (club).\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club."
-    + (memoOK ? "" : "\n\n⚠️ Mémorisation impossible sur cet appareil (" + memoNom + " · stockage utilisé : " + Math.round(usage/1024) + " Ko) : ce remplacement ne durera que pour cette session.\nCauses possibles : navigation privée, réglage bloquant les données de site, stockage saturé — l'import a quand même été appliqué."));
+    + (memoOK ? "" : memoNom === "SecurityError"
+      ? "\n\n⚠️ Mémorisation REFUSÉE par le navigateur (SecurityError) : il bloque les données de site pour cette adresse.\n\nÀ autoriser : cliquez sur l'icône à gauche de l'adresse (cadenas/réglages) → « Cookies et données des sites » → Autoriser — ou dans les paramètres du navigateur, ne pas bloquer tous les cookies. Ensuite, rechargez la page et réimportez : le remplacement sera mémorisé.\nEn attendant, l'import a été appliqué mais ne durera que pour cette session."
+      : "\n\n⚠️ Mémorisation impossible sur cet appareil (" + memoNom + " · stockage utilisé : " + Math.round(usage/1024) + " Ko) : ce remplacement ne durera que pour cette session.\nCauses possibles : navigation privée, réglage bloquant les données de site, stockage saturé — l'import a quand même été appliqué."));
 }
 
 function appliqueImport(key, d){         // remplace tracé + km + profil en mémoire
