@@ -434,6 +434,12 @@ function majCircBar(){
   const m = document.getElementById("cbMap"), p = document.getElementById("cbPos");
   if (bts[0] && m) m.textContent = bts[0].textContent;   // « 🗺️ Tracé GPX » / « ✖ Masquer le tracé »
   if (bts[1] && p) p.textContent = bts[1].textContent;   // « 📍 Position » / « ✖ Position »
+  const off = document.getElementById("cbOff");          // ♻️ visible seulement si un GPX roulé est actif ici
+  if (off) {
+    const d = carte.querySelector(".mapholder").dataset;
+    const c = byISO[d.iso] && byISO[d.iso].circuits[Number(d.i)];
+    off.style.display = c && IMPORTS[tk(d.iso, c)] ? "" : "none";
+  }
 }
 function initCircBar(){
   const acts = document.getElementById("circActions");
@@ -444,6 +450,8 @@ function initCircBar(){
   h += `<button class="btn" id="cbMap">🗺️ Tracé GPX</button><button class="btn" id="cbPos">📍 Position</button>`
     + `<button class="btn" id="cbRb">🧭 Roadbook</button>`
     + `<button class="btn" id="cbDl" title="Enregistrer le fichier GPX du circuit dans le dossier de votre choix">⬇ Télécharger GPX</button>`
+    + `<button class="btn" id="cbImp" title="Remplacer ce tracé par un parcours roulé (GPX exporté d'une appli type Strava)">📥 Importer un GPX</button>`
+    + `<button class="btn" id="cbOff" style="display:none" title="Retrouver le GPX officiel du club">♻️ Tracé officiel</button>`
     + `<button class="btn" id="cbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button>`;
   acts.innerHTML = h;
   acts.style.display = "flex";
@@ -462,6 +470,8 @@ function initCircBar(){
   };
   document.getElementById("cbRb").onclick = () => { const t = cible(); buildRoadbook(t.iso, t.i); };
   document.getElementById("cbDl").onclick = () => { const t = cible(); downloadGpx(t.iso, t.i); };
+  document.getElementById("cbImp").onclick = () => { const t = cible(); importerGpx(t.iso, t.i); };
+  document.getElementById("cbOff").onclick = () => { const t = cible(); annuleImport(t.iso, t.i); };
   document.getElementById("cbBack").onclick = () => {
     if (history.state && history.state.vue) history.back(); else fermerCirc();   // ‹ historique → écran précédent
   };
@@ -553,9 +563,7 @@ function carteCircuit(ev, c, i, iso, avecDate){
       <div class="mapbar">
         ${c.geo && c.geo.length ? `<button class="mapbtn" onclick="toggleMap(this, '${iso}', ${i})">🗺️ Tracé GPX</button>
         <button class="mapbtn" onclick="showPosition(this)">📍 Position</button>
-        <button class="mapbtn" onclick="buildRoadbook('${iso}', ${i})">🧭 Roadbook</button>
-        ${IMPORTS[tk(iso, c)] ? `<button class="mapbtn" onclick="annuleImport('${iso}', ${i})" title="Retrouver le GPX officiel du club">♻️ Tracé officiel</button>` : ""}
-        <button class="mapbtn" onclick="importerGpx('${iso}', ${i})" title="Remplacer ce tracé par un parcours roulé (GPX exporté d'une appli type Strava)">📥 Importer un GPX</button>` : ""}
+        <button class="mapbtn" onclick="buildRoadbook('${iso}', ${i})">🧭 Roadbook</button>` : ""}
       </div>
       <div class="mapholder" data-iso="${iso}" data-i="${i}" style="display:none"></div>
     </div>`;
@@ -741,6 +749,7 @@ function majApresImport(iso, i){         // km affiché + referme la carte ouver
     }
   }
   const lv = document.getElementById("listView"); if (lv) lv.innerHTML = "";   // reconstruite à la prochaine ouverture
+  if (typeof majCircBar === "function") majCircBar();   // ♻️ Tracé officiel apparaît/disparaît dans la barre du haut
 }
 
 const COMPASS = "N NNE NE ENE E ESE SE SSE S SSO SO OSO O ONO NO NNO".split(" ");
