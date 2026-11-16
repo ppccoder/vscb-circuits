@@ -746,10 +746,24 @@ function importerGpxTexte(txt, nom, cible){
     + "Parcours roulé : " + km.toFixed(1).replace(".", ",") + " km\nTracé du club : " + t.km + " km\n\n"
     + "Le remplacement est mémorisé sur cet appareil (carte, profil, roadbook, GPX téléchargeable) ; le bouton ♻️ Tracé officiel permet de revenir en arrière.")) return;
   appliqueImport(key, { pts: garder, km, asc: Math.round(asc), min: Math.round(min), max: Math.round(max), iso: cible.iso, i: cible.i, nom });
+  const kmClub = t._officiel ? t._officiel.km : t.km;      // km du club AVANT remplacement
+  let memoOK = true, memoNom = "";
   try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); }
-  catch (e) { alert("⚠️ Mémoire du téléphone saturée : le remplacement ne tiendra que pour cette session."); }
+  catch (e) {
+    memoNom = e && e.name ? e.name : "erreur";
+    memoOK = false;
+    try {   // reliques des anciennes versions (enregistrement GPS v29) : libérées puis nouvel essai
+      localStorage.removeItem("vscb_dernier_gpx_roule");
+      localStorage.removeItem("vscb_rec_en_cours");
+      localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS));
+      memoOK = true;
+    } catch (e2) {}
+  }
   majApresImport(cible.iso, cible.i);
-  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + t.km + " km (club).\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club.");
+  let usage = 0;
+  try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) usage += (localStorage.getItem(k) || "").length; } catch (e3) {}
+  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + kmClub + " km (club).\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club."
+    + (memoOK ? "" : "\n\n⚠️ Mémorisation impossible sur cet appareil (" + memoNom + " · stockage utilisé : " + Math.round(usage/1024) + " Ko) : ce remplacement ne durera que pour cette session.\nCauses possibles : navigation privée, réglage bloquant les données de site, stockage saturé — l'import a quand même été appliqué."));
 }
 
 function appliqueImport(key, d){         // remplace tracé + km + profil en mémoire
@@ -757,11 +771,13 @@ function appliqueImport(key, d){         // remplace tracé + km + profil en mé
   const c = byISO[d.iso] && byISO[d.iso].circuits[d.i];
   if (!t._officiel) t._officiel = { pts: t.pts, km: t.km, asc: t.asc, min: t.min, max: t.max,
                                     full: FULLPTS[key] || null, ckm: c ? c.km : null };
-  t.pts = d.pts; FULLPTS[key] = d.pts;
+  // coordonnées arrondies (5 décimales ≈ 1 m, altitude entière) : stockage allégé sur le téléphone
+  const ptsS = d.pts.map(p => [+p[0].toFixed(5), +p[1].toFixed(5), p[2] == null ? null : Math.round(p[2])]);
+  t.pts = ptsS; FULLPTS[key] = ptsS;
   t.km = Math.round(d.km * 10) / 10;
   t.asc = d.asc; t.min = d.min; t.max = d.max;
   if (c) c.km = t.km;
-  IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom };
+  IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom };
   return true;
 }
 
