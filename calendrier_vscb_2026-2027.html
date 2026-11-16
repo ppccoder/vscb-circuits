@@ -633,6 +633,26 @@ function distH(a, b){                    // distance haversine en mètres entre 
   const s = Math.sin(dLa/2)**2 + Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLo/2)**2;
   return 2*R*Math.asin(Math.sqrt(s));
 }
+const COMMUNES = {"Beauvoir":[46.18022,-0.47415], "Chizé":[46.1162,-0.34646], "Dampierre s/Boutonne":[46.06709,-0.4133], "Coivert":[46.0706,-0.4578], "Tout y Faut":[46.07436,-0.50895], "Migré":[46.07455,-0.55783], "La Ville aux Moines":[46.10634,-0.55233], "Doeuil s/le Mignon":[46.13145,-0.54361], "Carrefour Ste Geneviève":[46.15611,-0.53379], "La Mirauderie":[46.18557,-0.47725], "St Georges de Longuepierre":[46.04394,-0.39431], "Nuaillé s/B":[46.01765,-0.41022], "Pouzou":[45.99487,-0.43848], "Vervant":[45.97444,-0.45306], "St Denis du Pin":[45.99576,-0.52458], "Puymoreau":[46.00528,-0.55311], "La Benâte":[46.00514,-0.55865], "Courant":[46.04263,-0.57248], "Limouillas":[46.20032,-0.4958], "Marigny":[46.19764,-0.41758], "Prahecq":[46.25958,-0.34666], "Mougon":[46.28876,-0.30091], "Montaillon":[46.31027,-0.26101], "Thorigné":[46.28242,-0.25521], "Tauché":[46.25693,-0.28774], "Ste Blandine":[46.24589,-0.28389], "Brûlain":[46.20208,-0.32067], "St Romans des Champs":[46.20346,-0.34664], "Juscorps":[46.21304,-0.3869], "La Blotière":[46.21058,-0.4384], "Le Grand Mauduit":[46.18471,-0.41546], "Péré":[46.18571,-0.39121], "Romans":[46.35991,-0.22812], "Douhault":[46.33762,-0.1982], "Vitré":[46.28276,-0.19919], "Celles s/Belle":[46.26205,-0.21033], "Usseau":[46.17,-0.58636], "Mauzé":[46.19586,-0.6699], "St Hilaire la Palud":[46.2634,-0.71263], "Sansais":[46.27374,-0.5857], "Epannes":[46.22994,-0.58455], "La Foye-Monjault":[46.18637,-0.53957], "Arçais":[46.29664,-0.6915], "Damvix":[46.31458,-0.73364], "Le Mazeau":[46.33573,-0.67342], "Glandes":[46.33488,-0.59243], "Coulon":[46.32213,-0.58615], "La Garette":[46.30584,-0.58854], "La Rochenard":[46.20509,-0.58607], "Carrefour de St Félix":[46.09008,-0.60009], "Villenouvelle":[46.09429,-0.45566], "Boisserolles":[46.10885,-0.4533], "Lozay":[46.0412,-0.54587], "Vergné":[46.07341,-0.5189], "La Villedieu":[46.06184,-0.32136], "Le Rond Point":[46.06123,-0.34772], "Ensigné":[46.08629,-0.24392], "Villiers s/Chizé":[46.09846,-0.30095], "La Chauvière":[46.07695,-0.19384], "Paizay le Chapt":[46.08241,-0.18095], "Juillé":[46.11553,-0.2158], "Le Pontioux":[46.11732,-0.21805], "Aulnay":[46.02055,-0.34709], "Vallans":[46.21484,-0.55343], "Prin-Deyrançon":[46.22031,-0.63594], "Le Bourdet":[46.23461,-0.62438], "Ile Bapaume":[46.23814,-0.65901], "St Georges de Rex":[46.27813,-0.65426], "Le Vanneau":[46.29538,-0.63665], "Frontenay":[46.25449,-0.54041], "Granzay":[46.22749,-0.4816], "Irleau":[46.30784,-0.64963], "Secondigné":[46.1632,-0.29742], "Périgné":[46.18754,-0.25367], "Montigné":[46.21415,-0.23905], "Croué":[46.22475,-0.23932], "Fors":[46.2354,-0.4099], "Le Bourg d'Aiffres":[46.28622,-0.41642], "Bas Mairé":[46.27853,-0.44611], "St Symphorien":[46.26388,-0.49047], "Le Gué":[46.29232,-0.56673], "Magné":[46.31485,-0.54312], "Séligné":[46.14501,-0.28236], "Brioux":[46.1417,-0.22177], "Virollet":[46.14889,-0.39308], "Le Bousseau":[46.17951,-0.46604], "Asnières en Poitou":[46.1036,-0.19838], "Vauballier":[46.1602,-0.31818], "Verrines s/Celles":[46.21531,-0.23838], "St Séverin":[46.0836,-0.42097], "Le Vert":[46.09286,-0.39499], "Carville":[46.11381,-0.38771], "St Léger":[46.04513,-0.30722], "Salles les Aulnay":[46.02541,-0.3363], "Marsais":[46.12471,-0.60069], "Boisse":[46.12615,-0.6349], "Chabosse":[46.11511,-0.68092], "St Saturnin du Bois":[46.13881,-0.6717], "Le Coudret":[46.15458,-0.66551], "St Pierre d'Amilly":[46.17128,-0.6835], "Puybardon":[46.1077,-0.72125], "Surgères":[46.10527,-0.75112], "Vouhé":[46.14861,-0.79944], "Poléon":[46.15921,-0.74796], "Vouillé":[46.31426,-0.36774], "Vaumoreau":[46.32377,-0.32498], "Fressines":[46.32216,-0.29549], "Les Fosses":[46.16434,-0.37038], "Le Fenetreau":[46.18339,-0.47059], "Prissé la Charrière":[46.1496,-0.48342], "St Rémy":[46.37058,-0.52664], "Benet":[46.36833,-0.59611], "Vernoux s/Boutonne":[46.16027,-0.24626], "Le Petit Beauvais":[46.16159,-0.32243], "Paizay le Tort":[46.17564,-0.15959], "Lusseray":[46.14401,-0.16753], "Chérigné":[46.1225,-0.17168], "Chez Morin":[46.11828,-0.20934], "Villeneuve la Comtessse":[46.09854,-0.50734], "Boisseuil":[46.10018,-0.67581], "Terre Neuve":[46.17016,-0.49924], "Aubigné":[46.0566,-0.14194], "Courçon":[46.2437,-0.81341], "Benon":[46.20353,-0.81584], "St Maxire":[46.39941,-0.47668], "Faye s/Ardin":[46.44871,-0.51043], "Villiers en Plaine":[46.40766,-0.53699], "St Mandé de Brédoire":[46.02469,-0.30311], "Brie":[46.00177,-0.37837], "Paillé":[45.98858,-0.39153], "La Chapelle Bâton":[46.00865,-0.48398], "St Martial":[46.0482,-0.46601], "Blanzay":[46.04873,-0.42962], "Cherves":[46.26314,-0.4654], "St Martin de Bernegoue":[46.2374,-0.34801], "La Chaussée de Marsais":[46.11085,-0.58846], "St Pardoux":[45.99917,-0.44861], "Cram Chaban":[46.21789,-0.71554], "La Laigne":[46.21542,-0.75781], "La Ronde":[46.30032,-0.80578], "Croix de Maillé":[46.32168,-0.78705], "Aigonnay":[46.32386,-0.25906], "Carrefour de l'Hermitain":[46.33062,-0.16116], "Beaussais":[46.29078,-0.15255], "St Martin les Melle":[46.22248,-0.168], "St Romans les Melle":[46.20655,-0.1901], "St Pompain":[46.44339,-0.60008], "Petit Bousseau":[46.14905,-0.46691], "Saleignes":[46.00874,-0.18706], "Néré":[45.97502,-0.23741], "La Chesnay":[46.3349,-0.26556], "Nieuil s/l'Autize":[46.41923,-0.68082], "Bouillé-Courdault":[46.39139,-0.68778], "St Georges du Bois":[46.14277,-0.73409], "Fontenuza":[46.15963,-0.74197], "Villefollet":[46.12554,-0.26637], "Le Grand Bousseau":[46.14753,-0.45601], "Paizay-le-Chapt":[46.07845,-0.17374], "Prailles":[46.31993,-0.2043], "Ste Néomaye":[46.37308,-0.25941], "Les Fontenelles":[46.37571,-0.23772], "Chauray":[46.36069,-0.3746], "St Gelais":[46.38384,-0.39021], "Echiré":[46.39191,-0.41549], "La Tiffardière":[46.33003,-0.52179], "Cherveux":[46.4161,-0.35682], "Ste Ouenne":[46.44546,-0.44769], "S Rue":[46.2512,-0.174], "St Médard":[46.21241,-0.27191], "La Maçonne":[46.10285,-0.30929], "Priaires":[46.15062,-0.60656], "St Martin de la Coudre":[46.06285,-0.60429], "Loulay":[46.04678,-0.51206], "Chalussson":[46.39686,-0.39363], "St Genard":[46.18565,-0.13236], "Tillou":[46.15332,-0.12994], "Fontenille":[46.12327,-0.13143], "St Martin d'Entraigues":[46.11213,-0.12823], "Crézières":[46.08055,-0.13525], "Fleury":[46.04653,-0.16336], "Amuré":[46.2637,-0.63124], "Bassé":[46.22977,-0.51838], "Sepvret":[46.28767,-0.08983], "Lezay":[46.26524,-0.01039], "Melle":[46.22322,-0.14285], "Pied Blanc":[46.27105,-0.45028], "Les Eglises d'Argenteuil":[45.97444,-0.43167], "Thorigny":[46.15233,-0.54755], "Le Grand Bois":[46.17388,-0.52489], "Coulonges":[46.15304,-0.22703], "Gript":[46.21332,-0.46856], "La Grange":[46.198,-0.645], "Le Petit Breuil":[46.19321,-0.6451]};   // communes et lieux-dits du secteur (dédupliqués) : nom -> [lat, lon]
+
+function communesDeTrace(pts){           // communes traversées (centre a 800 m ou moins du trace), ordre du parcours
+  let laM = 0; for (const p of pts) laM += p[0];
+  laM = Math.cos(laM / pts.length * Math.PI/180);
+  const SEUIL2 = Math.pow(0.8/111, 2);   // 800 m en degres carres
+  const det = [];
+  for (const nom in COMMUNES) {
+    const la = COMMUNES[nom][0], lo = COMMUNES[nom][1];
+    let bi = -1, bd = 1e18;
+    for (let j = 0; j < pts.length; j++) {
+      const dx = (pts[j][1]-lo) * laM, dy = pts[j][0]-la;
+      const dd = dx*dx + dy*dy;
+      if (dd < bd) { bd = dd; bi = j; }
+    }
+    if (bd <= SEUIL2) det.push({ s: nom, g: [la, lo], j: bi });
+  }
+  det.sort((a, b) => a.j - b.j);
+  return det;
+}
 
 function importerGpx(iso, i){
   importEnCours = { iso, i };
@@ -762,23 +782,34 @@ function importerGpxTexte(txt, nom, cible){
   majApresImport(cible.iso, cible.i);
   let usage = 0;
   try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) usage += (localStorage.getItem(k) || "").length; } catch (e3) {}
-  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + kmClub + " km (club).\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club."
+  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + kmClub + " km (club).\nCommunes traversées recalculées sur votre parcours réel"
+    + (c.stops && c.stops.length ? " (" + c.stops.length + " communes détectées)." : ".")
+    + "\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club."
     + (memoOK ? "" : memoNom === "SecurityError"
       ? "\n\n⚠️ Mémorisation REFUSÉE par le navigateur (SecurityError) : il bloque les données de site pour cette adresse.\n\nÀ autoriser : cliquez sur l'icône à gauche de l'adresse (cadenas/réglages) → « Cookies et données des sites » → Autoriser — ou dans les paramètres du navigateur, ne pas bloquer tous les cookies. Ensuite, rechargez la page et réimportez : le remplacement sera mémorisé.\nEn attendant, l'import a été appliqué mais ne durera que pour cette session."
       : "\n\n⚠️ Mémorisation impossible sur cet appareil (" + memoNom + " · stockage utilisé : " + Math.round(usage/1024) + " Ko) : ce remplacement ne durera que pour cette session.\nCauses possibles : navigation privée, réglage bloquant les données de site, stockage saturé — l'import a quand même été appliqué."));
 }
 
-function appliqueImport(key, d){         // remplace tracé + km + profil en mémoire
+function appliqueImport(key, d){         // remplace tracé + km + profil + communes traversées en mémoire
   const t = TRACKS[key]; if (!t) return false;
   const c = byISO[d.iso] && byISO[d.iso].circuits[d.i];
   if (!t._officiel) t._officiel = { pts: t.pts, km: t.km, asc: t.asc, min: t.min, max: t.max,
-                                    full: FULLPTS[key] || null, ckm: c ? c.km : null };
+                                    full: FULLPTS[key] || null, ckm: c ? c.km : null,
+                                    stops: c ? c.stops : null, geo: c ? c.geo : null, route: c ? c.route : null };
   // coordonnées arrondies (5 décimales ≈ 1 m, altitude entière) : stockage allégé sur le téléphone
   const ptsS = d.pts.map(p => [+p[0].toFixed(5), +p[1].toFixed(5), p[2] == null ? null : Math.round(p[2])]);
   t.pts = ptsS; FULLPTS[key] = ptsS;
   t.km = Math.round(d.km * 10) / 10;
   t.asc = d.asc; t.min = d.min; t.max = d.max;
-  if (c) c.km = t.km;
+  if (c) {
+    c.km = t.km;
+    const det = communesDeTrace(ptsS);      // communes réellement traversées, ordre du parcours
+    if (det.length >= 2) {
+      c.stops = det.map(x => x.s);
+      c.geo = det.map(x => x.g);
+      c.route = det.map(x => x.s).join(" – ");
+    }
+  }
   IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom };
   return true;
 }
@@ -799,6 +830,7 @@ function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du c
   t.min = t._officiel.min; t.max = t._officiel.max;
   if (t._officiel.full) FULLPTS[key] = t._officiel.full;
   if (c && t._officiel.ckm != null) c.km = t._officiel.ckm;
+  if (c && t._officiel.stops) { c.stops = t._officiel.stops; c.geo = t._officiel.geo; c.route = t._officiel.route; }
   delete IMPORTS[key];
   try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
   majApresImport(iso, i);
@@ -810,6 +842,7 @@ function majApresImport(iso, i){         // km affiché + referme la carte ouver
   if (card) {
     const c = byISO[iso].circuits[i];
     const k = card.querySelector("h4 .km"); if (k) k.textContent = c.km + " km";
+    const r = card.querySelector(".route"); if (r) r.innerHTML = routeChain(c.route);   // chaîne de communes à jour
     const holder = card.querySelector(".mapholder");
     if (holder && holder.style.display === "block") {
       holder.style.display = "none";
