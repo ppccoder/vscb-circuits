@@ -497,6 +497,7 @@ function restaurerVue(s){
   const lv = document.getElementById("listView"); lv.style.display = "none";
   const la = document.getElementById("listActions"); if (la) la.style.display = "none";
   const rb = document.getElementById("rbView"); rb.style.display = "none"; rb.innerHTML = "";
+  document.getElementById("rbActions").style.display = "none";   // bande Imprimer/Retour du roadbook
   const cvv = document.getElementById("circView"); cvv.style.display = "none";
   const tete = document.getElementById("circHead"); tete.style.display = "none"; tete.innerHTML = "";
   const acts = document.getElementById("circActions"); if (acts) { acts.style.display = "none"; acts.innerHTML = ""; }
