@@ -647,26 +647,77 @@ document.getElementById("gpxImport").addEventListener("change", e => {
   f.text().then(txt => importerGpxTexte(txt, f.name, cible));
 });
 
-function importerGpxTexte(txt, nom, cible){
-  let doc;
-  try { doc = new DOMParser().parseFromString(txt, "text/xml"); } catch (e) {}
-  if (!doc || doc.getElementsByTagName("parsererror").length) {
-    alert("⚠️ Fichier « " + nom + " » illisible (GPX attendu).");
-    return;
-  }
-  const bruts = doc.getElementsByTagName("trkpt");
-  if (!bruts.length) {
-    alert("⚠️ Aucun point de trace (trkpt) dans « " + nom + " ».\n\nExportez bien le parcours au format GPX depuis votre appli.");
-    return;
-  }
-  const pts = [];
-  for (const p of bruts) {
-    const la = parseFloat(p.getAttribute("lat")), lo = parseFloat(p.getAttribute("lon"));
+function attrNum(s, nom){                // attribut lat="…" ou lat='…' (ordre et guillemets libres)
+  const m = new RegExp(nom + "\\s*=\\s*[\"']([\\-\\d.eE+]+)[\"']").exec(s);
+  return m ? parseFloat(m[1]) : NaN;
+}
+
+function extraitPoints(txt){             // points de trace depuis GPX, TCX ou KML (analyse par motifs,
+  let m;                                 // insensible aux namespaces et aux XML « souples » des applis)
+  // 1) GPX : <trkpt lat="…" lon="…"><ele>…</ele></trkpt> (ou auto-fermant, ou préfixé)
+  const ptsG = [];
+  const rxT = /<(?:[A-Za-z0-9_]+:)?trkpt\b([^>]*?)(\/>|>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?trkpt>)/g;
+  while ((m = rxT.exec(txt))) {
+    const la = attrNum(m[1], "lat"), lo = attrNum(m[1], "lon");
     if (!isFinite(la) || !isFinite(lo)) continue;
-    const noe = p.getElementsByTagName("ele")[0];
-    const ele = noe ? parseFloat(noe.textContent) : NaN;
-    pts.push([+la.toFixed(6), +lo.toFixed(6), isFinite(ele) ? ele : null]);
+    const me = m[3] ? /<(?:[A-Za-z0-9_]+:)?ele>\s*([-\d.eE+]+)/.exec(m[3]) : null;
+    ptsG.push([+la.toFixed(6), +lo.toFixed(6), me ? parseFloat(me[1]) : null]);
   }
+  if (ptsG.length < 2) {                 // 1bis) GPX sans trace : points de route (rtept), altitudes incluses
+    const rxR = /<(?:[A-Za-z0-9_]+:)?rtept\b([^>]*?)(\/>|>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?rtept>)/g;
+    while ((m = rxR.exec(txt))) {
+      const la = attrNum(m[1], "lat"), lo = attrNum(m[1], "lon");
+      if (!isFinite(la) || !isFinite(lo)) continue;
+      const me = m[3] ? /<(?:[A-Za-z0-9_]+:)?ele>\s*([-\d.eE+]+)/.exec(m[3]) : null;
+      ptsG.push([+la.toFixed(6), +lo.toFixed(6), me ? parseFloat(me[1]) : null]);
+    }
+  }
+  if (ptsG.length >= 2) return { pts: ptsG, format: "GPX" };
+  // 2) TCX (Garmin) : <Trackpoint> avec attributs lat/lon ou Position/LatitudeDegrees
+  const ptsT = [];
+  const rxTcx = /<(?:[A-Za-z0-9_]+:)?Trackpoint\b([^>]*)>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?Trackpoint>/g;
+  while ((m = rxTcx.exec(txt))) {
+    let la = attrNum(m[1], "lat"), lo = attrNum(m[1], "lon");
+    if (!isFinite(la)) { const q = /LatitudeDegrees>\s*([-\d.eE+]+)/.exec(m[2]); if (q) la = parseFloat(q[1]); }
+    if (!isFinite(lo)) { const q = /LongitudeDegrees>\s*([-\d.eE+]+)/.exec(m[2]); if (q) lo = parseFloat(q[1]); }
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    const qe = /AltitudeMeters>\s*([-\d.eE+]+)/.exec(m[2]);
+    ptsT.push([+la.toFixed(6), +lo.toFixed(6), qe ? parseFloat(qe[1]) : null]);
+  }
+  if (ptsT.length >= 2) return { pts: ptsT, format: "TCX" };
+  // 3) KML (Google Earth / certaines applis) : <coordinates>lon,lat[,alt] — ordre INVERSÉ — ou <gx:coord>
+  const ptsK = [];
+  const rxC = /<(?:[A-Za-z0-9_]+:)?coordinates>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?coordinates>/g;
+  while ((m = rxC.exec(txt)))
+    for (const tok of m[1].trim().split(/\s+/)) {
+      const c = tok.split(",");
+      if (c.length < 2) continue;
+      const lo = parseFloat(c[0]), la = parseFloat(c[1]);      // KML : longitude d'abord !
+      if (!isFinite(la) || !isFinite(lo)) continue;
+      ptsK.push([+la.toFixed(6), +lo.toFixed(6), c[2] != null && isFinite(parseFloat(c[2])) ? parseFloat(c[2]) : null]);
+    }
+  const rxGx = /<(?:[A-Za-z0-9_]+:)?coord>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?coord>/g;
+  while ((m = rxGx.exec(txt))) {
+    const c = m[1].trim().split(/\s+/);                       // gx:coord : lon lat [alt]
+    if (c.length >= 2 && isFinite(parseFloat(c[0])) && isFinite(parseFloat(c[1])))
+      ptsK.push([+parseFloat(c[1]).toFixed(6), +parseFloat(c[0]).toFixed(6),
+                 c[2] != null && isFinite(parseFloat(c[2])) ? parseFloat(c[2]) : null]);
+  }
+  if (ptsK.length >= 2) return { pts: ptsK, format: "KML" };
+  return null;
+}
+
+function importerGpxTexte(txt, nom, cible){
+  const ex = extraitPoints(txt);
+  if (!ex) {
+    const racine = /<\?xml[\s\S]*?>\s*<([A-Za-z0-9_:]+)/.exec(txt) || /<([A-Za-z0-9_:]+)/.exec(txt);
+    alert("⚠️ Aucun point de trace trouvé dans « " + nom + " »"
+      + (racine ? " (format détecté : <" + racine[1] + ">)" : "") + ".\n\n"
+      + "Formats acceptés : GPX, KML, TCX.\n"
+      + "Si votre appli exporte en FIT ou en ZIP : ouvrez le fichier dans gpx.studio, puis « Exporter » en GPX.");
+    return;
+  }
+  const pts = ex.pts;
   if (pts.length < 2) { alert("⚠️ Trace trop courte dans « " + nom + " »."); return; }
   // altitudes manquantes : recopie de la dernière connue (profil utilisable quel que soit l'export)
   let prec = null, avecEle = false;
