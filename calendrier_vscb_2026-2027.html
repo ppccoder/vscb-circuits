@@ -306,6 +306,15 @@ function moins364(iso){ const d = new Date(iso + "T00:00:00"); d.setDate(d.getDa
   }
 })();
 function tk(iso, c){ return (c.srcISO || iso) + "#" + c.label; }   // clé GPX/profil du tracé d'origine
+function evDe(iso){                      // entrée calendrier de la date (créée si besoin : jour sans sortie,
+  if (!byISO[iso]) {                     // date hors saison…) — permet d'y importer un parcours roulé
+    const d = iso.split("-").map(Number);
+    const JOURS = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    byISO[iso] = { date: iso, day: d[2], month: d[1], year: d[0],
+                   weekday: JOURS[new Date(iso + "T12:00:00").getDay()], circuits: [] };
+  }
+  return byISO[iso];
+}
 const grid = document.getElementById("grid");
 const moisLabel = document.getElementById("moisLabel");
 const overlay = document.getElementById("overlay");
@@ -364,6 +373,9 @@ function renderMonth(){
       });
     } else {
       num.textContent = d;
+      num.style.cursor = "pointer";                 // jour sans circuit : ouvrable pour y importer un GPX roulé
+      num.title = "Pas de circuit officiel ce jour — cliquez pour y importer un parcours roulé";
+      num.onclick = () => openDay(iso);
       cell.appendChild(num);
     }
     grid.appendChild(cell);
@@ -388,7 +400,8 @@ function frDate(iso){ const [y,m,d] = iso.split("-").map(Number); return `${d} $
 
 let circIdx = 0, circRetour = "cal", circScroll = 0;
 function openDay(iso, sansHisto){
-  const ev = byISO[iso]; if (!ev || !ev.circuits.length) return;
+  const ev = evDe(iso);
+  if (!ev.circuits.length) assureCircuitRoule(iso);   // jour sans circuit officiel : fiche « parcours roulé » prête pour l'import
   const moisSortie = Number(iso.slice(5, 7));                    // 1–12
   const hiverSortie = [10, 11, 12, 1, 2, 3].includes(moisSortie); // oct→mars : horaires d'hiver
   const sous = (ev.weekday === "Dimanche"
@@ -558,8 +571,8 @@ function escX(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>
 function carteCircuit(ev, c, i, iso, avecDate){
   // une carte de circuit (fiche) ; avecDate : ajoute la date, utile en sélection multi-sorties
   return `<div class="cir" data-iso="${iso}" data-i="${i}" data-lab="${escX(c.label)}${avecDate ? " · " + iso.slice(8, 10) + "/" + iso.slice(5, 7) : ""}">
-      <h4>Circuit ${c.label} ${c.reversed ? '<span class="rev">à l\u2019envers (sens inversé)</span>' : ''} <span class="km">${c.km} km</span>${avecDate ? ` <span class="km" style="font-weight:600">${frDate(ev.date)}</span>` : ""}</h4>
-      <div class="route">${routeChain(c.route)}</div>
+      <h4>${c.roule ? "🚴 Parcours roulé (importé)" : "Circuit " + c.label} ${c.reversed ? '<span class="rev">à l\u2019envers (sens inversé)</span>' : ''} <span class="km">${c.km} km</span>${avecDate ? ` <span class="km" style="font-weight:600">${frDate(ev.date)}</span>` : ""}</h4>
+      <div class="route">${c.roule && !c.geo ? "Pas de circuit officiel ce jour-là — utilisez 📥 Importer un GPX (barre du haut) pour y placer votre parcours roulé." : routeChain(c.route)}</div>
       <div class="mapbar">
         ${c.geo && c.geo.length ? `<button class="mapbtn" onclick="toggleMap(this, '${iso}', ${i})">🗺️ Tracé GPX</button>
         <button class="mapbtn" onclick="showPosition(this)">📍 Position</button>
@@ -763,8 +776,9 @@ function importerGpxTexte(txt, nom, cible){
   const key = tk(cible.iso, c), t = TRACKS[key];
   if (!t) { alert("⚠️ Ce circuit n'a pas de tracé officiel à remplacer."); return; }
   if (!confirm("Remplacer le tracé du circuit " + c.label + " par le parcours roulé de « " + nom + " » ?\n\n"
-    + "Parcours roulé : " + km.toFixed(1).replace(".", ",") + " km\nTracé du club : " + t.km + " km\n\n"
-    + "Le remplacement est mémorisé sur cet appareil (carte, profil, roadbook, GPX téléchargeable) ; le bouton ♻️ Tracé officiel permet de revenir en arrière.")) return;
+    + "Parcours roulé : " + km.toFixed(1).replace(".", ",") + " km\n"
+    + "Tracé du club : " + (t.km ? t.km + " km" : "aucun (jour sans circuit officiel)") + "\n\n"
+    + "Le remplacement est mémorisé sur cet appareil (carte, profil, roadbook, communes traversées, GPX téléchargeable) ; le bouton ♻️ Tracé officiel permet de revenir en arrière.")) return;
   appliqueImport(key, { pts: garder, km, asc: Math.round(asc), min: Math.round(min), max: Math.round(max), iso: cible.iso, i: cible.i, nom });
   const kmClub = t._officiel ? t._officiel.km : t.km;      // km du club AVANT remplacement
   let memoOK = true, memoNom = "";
@@ -782,7 +796,9 @@ function importerGpxTexte(txt, nom, cible){
   majApresImport(cible.iso, cible.i);
   let usage = 0;
   try { for (const k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) usage += (localStorage.getItem(k) || "").length; } catch (e3) {}
-  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé) au lieu de " + kmClub + " km (club).\nCommunes traversées recalculées sur votre parcours réel"
+  alert("✅ Tracé remplacé !\n\nCircuit " + c.label + " : " + km.toFixed(1).replace(".", ",") + " km (roulé)"
+    + (kmClub ? " au lieu de " + kmClub + " km (club)." : " — aucun circuit officiel ce jour-là, la fiche « 🚴 Parcours roulé » est créée pour cette date.")
+    + "\nCommunes traversées recalculées sur votre parcours réel"
     + (c.stops && c.stops.length ? " (" + c.stops.length + " communes détectées)." : ".")
     + "\n\nRouvrez la carte pour voir le nouveau tracé ; ♻️ Tracé officiel restaure le GPX du club."
     + (memoOK ? "" : memoNom === "SecurityError"
@@ -810,13 +826,29 @@ function appliqueImport(key, d){         // remplace tracé + km + profil + comm
       c.route = det.map(x => x.s).join(" – ");
     }
   }
-  IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom };
+  IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: c ? c.label : "R" };
   return true;
+}
+
+function assureCircuitRoule(iso, lab){   // fiche « parcours roulé » pour un jour sans circuit officiel
+  const ev = evDe(iso);
+  let c = ev.circuits.find(x => x.roule);
+  if (!c) {
+    c = { label: lab || "R", roule: true, km: "—", route: "", stops: [], geo: [], reversed: false };
+    ev.circuits.push(c);
+  }
+  const key = tk(iso, c);
+  if (!TRACKS[key]) TRACKS[key] = { f: "roule_" + iso + ".gpx", km: "", kmc: "", asc: "", min: "", max: "", pts: [], ori: "?" };
+  return c;
 }
 
 function restaurerImports(){             // au chargement de la page : ré-applique les imports mémorisés
   for (const key in IMPORTS) {
-    if (!TRACKS[key]) { delete IMPORTS[key]; continue; }
+    const d = IMPORTS[key];
+    if (!TRACKS[key]) {
+      assureCircuitRoule(d.iso, d.lab);  // circuit créé par import sur un jour sans circuit officiel
+      if (!TRACKS[key]) { delete IMPORTS[key]; continue; }
+    }
     appliqueImport(key, IMPORTS[key]);
   }
   try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
@@ -839,8 +871,12 @@ function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du c
 
 function majApresImport(iso, i){         // km affiché + referme la carte ouverte (rebâtie au prochain tracé)
   const card = document.querySelector('#circView .cir[data-iso="' + iso + '"][data-i="' + i + '"]');
-  if (card) {
-    const c = byISO[iso].circuits[i];
+  const c = byISO[iso] && byISO[iso].circuits[i];
+  if (card && c && c.geo && c.geo.length && !card.querySelector(".mapbar .mapbtn")) {
+    openDay(iso, true);                     // fiche créée pour un jour sans circuit (sans boutons) : reconstruite complète
+    return;
+  }
+  if (card && c) {
     const k = card.querySelector("h4 .km"); if (k) k.textContent = c.km + " km";
     const r = card.querySelector(".route"); if (r) r.innerHTML = routeChain(c.route);   // chaîne de communes à jour
     const holder = card.querySelector(".mapholder");
