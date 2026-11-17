@@ -128,6 +128,16 @@
   #ventPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
   #ventPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 8px}
   #ventPanel .vfermer{position:absolute;top:8px;right:10px;border:none;background:rgba(255,255,255,.6);border-radius:99px;width:28px;height:28px;font-size:14px;cursor:pointer;color:#33404a}
+  /* Mes parcours roulés — sauvegarde JSON des imports */
+  #parcPanel{display:none;flex-direction:column;position:fixed;z-index:1200;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:min(88vh,760px);overflow:hidden;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 12px 40px rgba(20,30,45,.28);padding:14px 16px 16px}
+  #parcPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
+  #parcPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 8px}
+  #parcPanel .vfermer{position:absolute;top:8px;right:10px;border:none;background:rgba(255,255,255,.6);border-radius:99px;width:28px;height:28px;font-size:14px;cursor:pointer;color:#33404a}
+  #parcListe{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:4px}
+  .parcRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 6px;border-bottom:1px solid rgba(46,125,79,.15);font-size:.88rem}
+  .parcRow .btn{padding:3px 10px;font-size:.8rem}
+  .parcBtns{display:flex;gap:8px;margin-top:10px}
+  .parcBtns .btn{flex:1}
   .rose{display:block;width:190px;height:190px;margin:0 auto}
   .rose .pale{cursor:pointer;fill:#dfe8e2;stroke:#9fb3a8;stroke-width:1;transition:fill .15s}
   .rose .pale:hover{fill:#c9d9d0}
@@ -153,7 +163,7 @@
   .ln .path{color:#333d49}
   @media print{
     body{background:#fff;font-size:11.5pt}
-    header, #topbar, #listActions, #calView, #results, .overlay, #stats{display:none !important}
+    header, #topbar, #listActions, #calView, #results, .overlay, #stats, #ventPanel, #parcPanel{display:none !important}
     .lmonth{page-break-inside:avoid;page-break-after:always}
     .lsess{break-inside:avoid;box-shadow:none;border:1px solid #999;background:#fff;backdrop-filter:none}
     body.printing #listView{display:block !important}
@@ -213,6 +223,7 @@
   </div>
 </header>
 <input type="file" id="gpxImport" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none">
+<input type="file" id="jsonImport" accept=".json,application/json" style="display:none">
 
 <main class="wrap">
   <div id="topbar" class="topbar">
@@ -221,6 +232,7 @@
       <button class="btn" id="listBtn" title="Liste complète de la saison">📃 Liste / Imprimer</button>
       <button class="btn" id="ventBtn" title="Circuits selon le vent (1re moitié face au vent, 2e sous le vent)">🧭 Vent</button>
       <button class="btn" id="todayBtn" title="Aller au mois courant">📅 Aujourd'hui</button>
+      <button class="btn" id="parcBtn" title="Vos parcours roulés importés : liste, sauvegarde JSON, chargement">💾 Mes parcours</button>
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
     </div>
@@ -250,6 +262,17 @@
     <svg class="rose" id="rose" viewBox="0 0 200 200"></svg>
     <div id="ventEtat" class="note"></div>
     <div id="ventRes"></div>
+  </div>
+
+  <div id="parcPanel" role="dialog" aria-label="Mes parcours roulés importés">
+    <button class="vfermer" id="parcClose" title="Fermer">✕</button>
+    <h3>💾 Mes parcours roulés</h3>
+    <p class="note">Parcours GPX importés sur cet appareil (mémorisés par le navigateur). « Sauvegarder » les enregistre dans un fichier JSON à conserver ou copier sur un autre appareil ; « Charger » les restaure depuis ce fichier (fusion, sans écraser les vôtres).</p>
+    <div id="parcListe"></div>
+    <div class="parcBtns">
+      <button class="btn" id="parcExport" title="Enregistre tous vos parcours importés dans un fichier JSON">⬇ Sauvegarder JSON</button>
+      <button class="btn" id="parcCharger" title="Recharge des parcours depuis un fichier JSON (fusion)">⬆ Charger JSON</button>
+    </div>
   </div>
   <div class="stats" id="stats"></div>
 </main>
@@ -1753,6 +1776,90 @@ ventBtn.onclick = () => {
 document.getElementById("ventClose").onclick = () => { ventPanel.style.display = "none"; };
 document.getElementById("listBtn").addEventListener("click", () => { ventPanel.style.display = "none"; });
 majVent();
+
+// ---- Mes parcours roulés : liste + sauvegarde / chargement JSON des imports ----
+const parcPanel = document.getElementById("parcPanel");
+function majParcListe(){                    // reconstruit la liste des imports mémorisés
+  const ul = document.getElementById("parcListe"); if (!ul) return;
+  const keys = Object.keys(IMPORTS);
+  if (!keys.length) { ul.innerHTML = '<p class="note" style="margin:6px 0">Aucun parcours importé sur cet appareil.</p>'; return; }
+  ul.innerHTML = keys.sort().map(key => {
+    const d = IMPORTS[key];
+    return `<div class="parcRow"><div><b>${frDate(d.iso)}</b> — circuit ${esc(d.lab || "R")}<br>` +
+      `<span class="note">${(d.km || 0).toFixed(1).replace(".", ",")} km · ${(d.pts || []).length} pts${d.nom ? " · " + esc(d.nom) : ""}</span></div>` +
+      `<button class="btn parcRetirer" data-key="${esc(key)}" title="Retire ce parcours (mémorisation + fiche)">♻️</button></div>`;
+  }).join("");
+  ul.querySelectorAll(".parcRetirer").forEach(b => b.onclick = () => {
+    const key = b.dataset.key, d = IMPORTS[key]; if (!d) return;
+    const c = byISO[d.iso] && byISO[d.iso].circuits[d.i];
+    const t = c ? TRACKS[tk(d.iso, c)] : null;
+    if (t && t._officiel) { annuleImport(d.iso, d.i); majParcListe(); }   // import sur un circuit officiel : retour au club
+    else {                                                     // parcours roulé sans officiel : la fiche disparaît
+      if (c && c.roule) {
+        const ev = byISO[d.iso], idx = ev.circuits.indexOf(c);
+        if (idx >= 0) ev.circuits.splice(idx, 1);
+        const k2 = tk(d.iso, c);
+        delete TRACKS[k2]; delete FULLPTS[k2];
+        const card = document.querySelector(`#circView .cir[data-iso="${d.iso}"]`);
+        if (card) openDay(d.iso, true);
+      }
+      delete IMPORTS[key];
+      try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
+      renderMonth(); majParcListe();
+    }
+  });
+}
+function exportTexte(nom, contenu, mime){   // enregistrement d'un fichier texte/JSON (PC : boîte de choix ; mobile : dossier Téléchargements)
+  const blob = new Blob([contenu], { type: mime || "application/json" });
+  if (window.showSaveFilePicker) {
+    window.showSaveFilePicker({ suggestedName: nom,
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }] })
+      .then(h => h.createWritable()).then(w => w.write(blob).then(() => w.close()))
+      .catch(() => {});                                        // annulation : rien
+  } else {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+}
+function sauvegardeParcours(){              // ⬇ : tous les imports dans un fichier JSON
+  const keys = Object.keys(IMPORTS);
+  if (!keys.length) { alert("Aucun parcours importé à sauvegarder."); return; }
+  const obj = { appli: "Calendrier VSCB", type: "parcours_roules", version: 1,
+                date: new Date().toISOString().slice(0, 10), parcours: {} };
+  keys.forEach(k => { obj.parcours[k] = IMPORTS[k]; });
+  exportTexte("parcours_roules_vscb.json", JSON.stringify(obj));
+}
+function chargeParcoursJson(texte){         // ⬆ : fusionne un fichier JSON de parcours puis recharge la page
+  let obj; try { obj = JSON.parse(texte); } catch (e) { alert("Fichier illisible : ce n'est pas un JSON de parcours VSCB."); return; }
+  const p = obj && (obj.parcours || obj);    // accepte la sauvegarde complète ou un objet brut
+  let n = 0;
+  for (const key in p) {
+    const d = p[key];
+    if (!d || typeof d.iso !== "string" || !Array.isArray(d.pts) || d.pts.length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(d.iso)) continue;
+    IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: d.lab || "R" };
+    n++;
+  }
+  if (!n) { alert("Aucun parcours valide trouvé dans ce fichier."); return; }
+  try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
+  alert("✅ " + n + " parcours chargé(s) depuis le fichier JSON. La page va se recharger.");
+  location.reload();
+}
+document.getElementById("parcBtn").onclick = () => {
+  majParcListe();
+  parcPanel.style.display = parcPanel.style.display === "flex" ? "none" : "flex";
+};
+document.getElementById("parcClose").onclick = () => { parcPanel.style.display = "none"; };
+document.getElementById("parcExport").onclick = sauvegardeParcours;
+document.getElementById("parcCharger").onclick = () => document.getElementById("jsonImport").click();
+document.getElementById("jsonImport").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => chargeParcoursJson(String(r.result || ""));
+  r.readAsText(f);
+  e.target.value = "";
+});
 
 const statsText = ""; document.getElementById("stats").textContent = "";
 // hauteur de l'en-tête pour la barre fixe (recalculée au redimensionnement et après chargement des polices)
