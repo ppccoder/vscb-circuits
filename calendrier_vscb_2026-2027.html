@@ -52,6 +52,8 @@
   .cell.today{outline:2px solid var(--accent);outline-offset:-2px}
   .chip{font-size:.72rem;border-radius:6px;padding:2px 6px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;cursor:pointer}
   .chip.s{background:var(--sunday-soft);color:var(--sunday-ink)} .chip.t{background:var(--tuesday-soft);color:var(--tuesday-ink)} .chip.roule{background:#f39c12;color:#fff}
+  .eff{width:34px;font-size:.65rem;padding:1px 3px;margin-left:4px;border:1px solid #ccc;border-radius:4px;text-align:center;vertical-align:middle}
+  .eff:focus{border-color:var(--accent);outline:none}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
   .stats{margin:10px 0 30px;color:var(--muted);font-size:.8rem;text-align:center}
@@ -138,6 +140,14 @@
   .parcRow .btn{padding:3px 10px;font-size:.8rem}
   .parcBtns{display:flex;gap:8px;margin-top:10px}
   .parcBtns .btn{flex:1}
+  /* Panneau Effectifs (même style que Mes parcours) */
+  #effPanel{display:none;flex-direction:column;position:fixed;z-index:1200;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,460px);max-height:min(88vh,760px);overflow:hidden;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 12px 40px rgba(20,30,45,.28);padding:14px 16px 16px}
+  #effPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
+  #effPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 8px}
+  #effPanel .vfermer{position:absolute;top:8px;right:10px;border:none;background:rgba(255,255,255,.6);border-radius:99px;width:28px;height:28px;font-size:14px;cursor:pointer;color:#33404a}
+  #effListe{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:4px}
+  .effRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 6px;border-bottom:1px solid rgba(46,125,79,.15);font-size:.88rem}
+  .effRow input{width:44px}
   /* Écran de chargement des tracés (circuits_gpx.json) */
   #gpxLoading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:fixed;z-index:1300;inset:0;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);white-space:pre-line;text-align:center;padding:20px}
   #gpxLoading .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(46,125,79,.25);border-top-color:var(--accent);animation:tourne 1s linear infinite}
@@ -169,7 +179,7 @@
   .ln .path{color:#333d49}
   @media print{
     body{background:#fff;font-size:11.5pt}
-    header, #topbar, #listActions, #calView, #results, .overlay, #stats, #ventPanel, #parcPanel{display:none !important}
+    header, #topbar, #listActions, #calView, #results, .overlay, #stats, #ventPanel, #parcPanel, #effPanel{display:none !important}
     .lmonth{page-break-inside:avoid;page-break-after:always}
     .lsess{break-inside:avoid;box-shadow:none;border:1px solid #999;background:#fff;backdrop-filter:none}
     body.printing #listView{display:block !important}
@@ -230,6 +240,7 @@
 </header>
 <input type="file" id="gpxImport" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none">
 <input type="file" id="jsonImport" accept=".json,application/json" style="display:none">
+<input type="file" id="jsonEffImport" accept=".json,application/json" style="display:none">
 
 <main class="wrap">
   <div id="topbar" class="topbar">
@@ -239,6 +250,7 @@
       <button class="btn" id="ventBtn" title="Circuits selon le vent (1re moitié face au vent, 2e sous le vent)">🧭 Vent</button>
       <button class="btn" id="todayBtn" title="Aller au mois courant">📅 Aujourd'hui</button>
       <button class="btn" id="parcBtn" title="Vos parcours roulés importés : liste, sauvegarde JSON, chargement">💾 Mes parcours</button>
+      <button class="btn" id="effBtn" title="Nombre de cyclistes par sortie : saisie, sauvegarde JSON, chargement">👥 Effectifs</button>
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
     </div>
@@ -278,6 +290,17 @@
     <div class="parcBtns">
       <button class="btn" id="parcExport" title="Enregistre tous vos parcours importés dans un fichier JSON">⬇ Sauvegarder JSON</button>
       <button class="btn" id="parcCharger" title="Recharge des parcours depuis un fichier JSON (fusion)">⬆ Charger JSON</button>
+    </div>
+  </div>
+
+  <div id="effPanel" role="dialog" aria-label="Effectifs des sorties">
+    <button class="vfermer" id="effClose" title="Fermer">✕</button>
+    <h3>👥 Effectifs par sortie</h3>
+    <p class="note">Nombre de cyclistes présents à chaque sortie (mémorisé sur cet appareil). « Sauvegarder » exporte tous les effectifs dans un fichier JSON ; « Charger » restaure depuis un fichier JSON (fusion avec les vôtres).</p>
+    <div id="effListe"></div>
+    <div class="parcBtns">
+      <button class="btn" id="effExport" title="Enregistre tous les effectifs dans un fichier JSON">⬇ Sauvegarder JSON</button>
+      <button class="btn" id="effCharger" title="Recharge des effectifs depuis un fichier JSON (fusion)">⬆ Charger JSON</button>
     </div>
   </div>
 
@@ -405,6 +428,14 @@ function renderMonth(){
         ch.textContent = `${c.km} km${c.reversed ? " ↺" : ""}`;
         ch.onclick = () => openDay(iso);
         cell.appendChild(ch);
+        // saisie du nombre de cyclistes présents à cette sortie
+        const key = tk(iso, c);
+        const eff = document.createElement("input");
+        eff.type = "number"; eff.min = "0"; eff.className = "eff";
+        eff.value = EFFETIFS[key] || "";
+        eff.title = "Nombre de cyclistes présents à cette sortie";
+        eff.onchange = () => { const v = parseInt(eff.value || "0", 10); if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} } };
+        cell.appendChild(eff);
       });
     } else {
       num.textContent = d;
@@ -673,6 +704,7 @@ async function downloadGpx(iso, i){
 //      téléphone) : remplace le tracé officiel du circuit sur cet appareil,
 //      mémorisé entre les visites et réversible (♻️ Tracé officiel) ----
 const IMPORTS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_gpx_roule") || "{}") || {}; } catch (e) { return {}; } })();
+const EFFETIFS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_effectifs") || "{}") || {}; } catch (e) { return {}; } })();   // { "iso#label": nb cyclistes }
 let importEnCours = null;   // {iso, i} : circuit visé par le bouton 📥 en attente du fichier
 
 function distH(a, b){                    // distance haversine en mètres entre 2 points [lat,lon]
@@ -1887,6 +1919,58 @@ document.getElementById("jsonImport").addEventListener("change", e => {
   e.target.value = "";
 });
 
+// ---- Effectifs par sortie : liste + export / import JSON ----
+const effPanel = document.getElementById("effPanel");
+function majEffListe(){                    // reconstruit la liste des effectifs saisis
+  const ul = document.getElementById("effListe"); if (!ul) return;
+  const keys = Object.keys(EFFETIFS).sort();
+  if (!keys.length) { ul.innerHTML = '<p class="note" style="margin:6px 0">Aucun effectif saisi pour l\'instant.</p>'; return; }
+  ul.innerHTML = keys.map(key => {
+    const [iso, label] = key.split("#");
+    const n = EFFETIFS[key];
+    return `<div class="effRow"><div><b>${frDate(iso)}</b> — circuit ${esc(label)}<br><span class="note">${n} cycliste${n>1?"s":""}</span></div><input type="number" class="eff" min="0" value="${n}" data-key="${esc(key)}" title="Modifier le nombre de cyclistes"></div>`;
+  }).join("");
+  ul.querySelectorAll("input.eff").forEach(input => input.onchange = function(){
+    const key = this.dataset.key, v = parseInt(this.value || "0", 10);
+    if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} }
+  });
+}
+function exportEffectifs(){                // ⬇ : tous les effectifs dans un fichier JSON
+  const keys = Object.keys(EFFETIFS);
+  if (!keys.length) { alert("Aucun effectif saisi à exporter."); return; }
+  const obj = { appli: "Calendrier VSCB", type: "effectifs", version: 1,
+                date: new Date().toISOString().slice(0, 10), effectifs: {} };
+  keys.forEach(k => { obj.effectifs[k] = EFFETIFS[k]; });
+  exportTexte("effectifs_vscb.json", JSON.stringify(obj));
+}
+function chargeEffectifsJson(texte){       // ⬆ : fusionne un fichier JSON d'effectifs puis recharge
+  let obj; try { obj = JSON.parse(texte); } catch (e) { alert("Fichier illisible : ce n'est pas un JSON d'effectifs VSCB."); return; }
+  const e = obj && (obj.effectifs || obj);
+  let n = 0;
+  for (const key in e) {
+    const v = e[key];
+    if (typeof v === "number" && v >= 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) { EFFETIFS[key] = v; n++; }
+  }
+  if (!n) { alert("Aucun effectif valide trouvé dans ce fichier."); return; }
+  try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
+  alert("✅ " + n + " effectif(s) chargé(s) depuis le fichier JSON. La page va se recharger.");
+  location.reload();
+}
+document.getElementById("effBtn").onclick = () => {
+  majEffListe();
+  effPanel.style.display = effPanel.style.display === "flex" ? "none" : "flex";
+};
+document.getElementById("effClose").onclick = () => { effPanel.style.display = "none"; };
+document.getElementById("effExport").onclick = exportEffectifs;
+document.getElementById("effCharger").onclick = () => document.getElementById("jsonEffImport").click();
+document.getElementById("jsonEffImport").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => chargeEffectifsJson(String(r.result || ""));
+  r.readAsText(f);
+  e.target.value = "";
+});
+
 const statsText = ""; document.getElementById("stats").textContent = "";
 // hauteur de l'en-tête pour la barre fixe (recalculée au redimensionnement et après chargement des polices)
 function setHdrH(){
@@ -1967,6 +2051,28 @@ async function chargerGpx(){
 }
 document.getElementById("gpxRetry").addEventListener("click", chargerGpx);
 chargerGpx();
+
+// ---- Chargement des effectifs depuis GitHub (effectifs.json) au démarrage ----
+async function chargerEffectifs(){
+  let data = null;
+  for (const u of ["effectifs.json", "https://ppccoder.github.io/vscb-circuits/effectifs.json"]) {
+    try { const r = await fetch(u, { cache: "no-cache" }); if (r.ok) { data = await r.json(); break; } } catch (e) {}
+  }
+  if (!data || !data.effectifs) return;   // pas de fichier sur GitHub : on garde les effectifs locaux
+  let n = 0, maj = false;
+  for (const key in data.effectifs) {
+    const v = data.effectifs[key];
+    if (typeof v === "number" && v >= 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) {
+      if (EFFETIFS[key] !== v) { EFFETIFS[key] = v; maj = true; }
+      n++;
+    }
+  }
+  if (maj) {
+    try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
+    renderMonth();                        // les effectifs du jour s'affichent dans les cellules
+  }
+}
+chargerEffectifs();
 
 // flèche ‹ du téléphone/navigateur : revient à l'écran précédent du programme ;
 // au niveau du calendrier (base), ‹ quitte normalement le site
