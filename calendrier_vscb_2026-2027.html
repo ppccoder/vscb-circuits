@@ -51,7 +51,7 @@
   .cell.empty{background:transparent;border-color:transparent}
   .cell.today{outline:2px solid var(--accent);outline-offset:-2px}
   .chip{font-size:.72rem;border-radius:6px;padding:2px 6px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;cursor:pointer}
-  .chip.s{background:var(--sunday-soft);color:var(--sunday-ink)} .chip.t{background:var(--tuesday-soft);color:var(--tuesday-ink)}
+  .chip.s{background:var(--sunday-soft);color:var(--sunday-ink)} .chip.t{background:var(--tuesday-soft);color:var(--tuesday-ink)} .chip.roule{background:#f39c12;color:#fff}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
   .stats{margin:10px 0 30px;color:var(--muted);font-size:.8rem;text-align:center}
@@ -401,7 +401,7 @@ function renderMonth(){
       cell.appendChild(num);
       ev.circuits.forEach(c => {
         const ch = document.createElement("span");
-        ch.className = "chip " + (ev.weekday === "Dimanche" ? "s" : "t");
+        ch.className = "chip " + (ev.weekday === "Dimanche" ? "s" : "t") + (c.roule ? " roule" : "");
         ch.textContent = `${c.km} km${c.reversed ? " ↺" : ""}`;
         ch.onclick = () => openDay(iso);
         cell.appendChild(ch);
