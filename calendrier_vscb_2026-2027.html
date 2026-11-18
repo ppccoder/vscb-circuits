@@ -889,10 +889,23 @@ function restaurerImports(){             // au chargement de la page : ré-appli
   try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
 }
 
-function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du club
+function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du club (ou retrait complet du parcours roulé sans officiel)
   const c = byISO[iso] && byISO[iso].circuits[i]; if (!c) return;
   const key = tk(iso, c), t = TRACKS[key];
-  if (!t || !t._officiel) return;
+  if (!t) return;
+  if (!t._officiel || !t._officiel.full) {                    // aucun circuit officiel ce jour-là : on retire complètement la fiche roulée
+    const ev = byISO[iso];
+    if (ev && c.roule) {
+      const idx = ev.circuits.indexOf(c);
+      if (idx >= 0) ev.circuits.splice(idx, 1);
+      delete TRACKS[key]; delete FULLPTS[key];
+    }
+    delete IMPORTS[key];
+    try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
+    renderMonth();                       // la cellule redevient vide, pas de “— km”
+    alert("Parcours roulé retiré.");
+    return;
+  }
   t.pts = t._officiel.pts; t.km = t._officiel.km; t.asc = t._officiel.asc;
   t.min = t._officiel.min; t.max = t._officiel.max;
   if (t._officiel.full) FULLPTS[key] = t._officiel.full;
