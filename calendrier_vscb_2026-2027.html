@@ -44,6 +44,7 @@
   .btn{border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:7px 13px;cursor:pointer;font:inherit;font-size:.85rem;font-weight:600;color:#1f5c39;transition:.15s}
   .btn:hover{border-color:var(--accent);background:var(--accent);color:#fff}
   .dow,.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  #calView{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   .dow div{text-align:center;font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 0}
   .cell{min-height:76px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.75);border-radius:10px;padding:6px 7px;display:flex;flex-direction:column;gap:3px;position:relative;box-shadow:0 1px 3px rgba(20,30,45,.05)}
   .cell .num{font-size:.85rem;font-weight:650}
