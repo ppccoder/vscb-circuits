@@ -923,6 +923,7 @@ function majApresImport(iso, i){         // km affiché + referme la carte ouver
   }
   const lv = document.getElementById("listView"); if (lv) lv.innerHTML = "";   // reconstruite à la prochaine ouverture
   if (typeof majCircBar === "function") majCircBar();   // ♻️ Tracé officiel apparaît/disparaît dans la barre du haut
+  renderMonth();                                        // les pastilles km du calendrier se mettent à jour (import / ♻️)
 }
 
 const COMPASS = "N NNE NE ENE E ESE SE SSE S SSO SO OSO O ONO NO NNO".split(" ");
