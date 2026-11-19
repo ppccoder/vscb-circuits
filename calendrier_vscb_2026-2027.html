@@ -151,7 +151,7 @@
   .effRow input{width:44px}
   /* Panneau Aide (même style que les autres panneaux) */
   #helpPanel{display:none;flex-direction:column;position:fixed;z-index:1200;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,520px);max-height:min(90vh,820px);overflow:hidden;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 12px 40px rgba(20,30,45,.28);padding:14px 16px 16px}
-  #helpPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
+  #helpPanel h3{margin:0 0 4px;font-size:1.05rem}
   #helpPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 10px}
   #helpListe{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:4px}
   .helpItem{padding:8px 6px;border-bottom:1px solid rgba(46,125,79,.1);font-size:.9rem}
@@ -315,7 +315,6 @@
   </div>
 
   <div id="helpPanel" role="dialog" aria-label="Aide — fonctionnalités du calendrier VSCB">
-    <button class="vfermer" id="helpClose" title="Fermer">✕</button>
     <h3>📖 Aide — Calendrier VSCB 2026-2027</h3>
     <p class="note">Retrouvez ici les explications des principales fonctionnalités du programme.</p>
     <div id="helpListe"></div>
@@ -2021,7 +2020,6 @@ document.getElementById("helpBtn").onclick = () => {
   majHelpListe();
   helpPanel.style.display = helpPanel.style.display === "flex" ? "none" : "flex";
 };
-document.getElementById("helpClose").onclick = () => { helpPanel.style.display = "none"; };
 document.getElementById("helpFermer").onclick = () => { helpPanel.style.display = "none"; };
 
 const statsText = ""; document.getElementById("stats").textContent = "";
