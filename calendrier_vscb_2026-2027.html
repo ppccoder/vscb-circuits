@@ -55,6 +55,11 @@
   .chip.s{background:var(--sunday-soft);color:var(--sunday-ink)} .chip.t{background:var(--tuesday-soft);color:var(--tuesday-ink)} .chip.roule{background:#f39c12;color:#fff}
   .eff{width:34px;font-size:.65rem;padding:1px 3px;margin-left:4px;border:1px solid #ccc;border-radius:4px;text-align:center;vertical-align:middle}
   .eff:focus{border-color:var(--accent);outline:none}
+  .wx{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px;margin-top:auto;font-size:.6rem;line-height:1.2;color:#3f5260;opacity:.92}
+  .wx .wemo{font-size:.66rem}
+  .wx .wtemp{font-weight:700}
+  .wx .wnd{display:inline-flex;align-items:center;gap:1px;font-size:.55rem;color:#63788a}
+  .wx .wfl{display:inline-block;font-size:.6rem;line-height:1}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
   .stats{margin:10px 0 30px;color:var(--muted);font-size:.8rem;text-align:center}
@@ -463,8 +468,80 @@ function renderMonth(){
       num.onclick = () => openDay(iso);
       cell.appendChild(num);
     }
+    // météo du jour : icône, température et vent à l'heure de départ (ou 9 h les autres jours)
+    if (METEO[iso]) cell.appendChild(ligneMeteo(iso));
     grid.appendChild(cell);
   }
+}
+
+// ---- Météo : icônes WMO, heure de départ, affichage dans la cellule ----
+function heureRef(iso){                       // heure pleine retenue pour la météo du jour
+  const j = new Date(iso + "T12:00:00").getDay();
+  const hiver = [9,10,11,0,1,2].includes(Number(iso.slice(5,7)) - 1);
+  if (j === 0) return hiver ? 9 : 8;          // dimanche : 9 h (hiver) / 8 h 30 (été) → 8 h
+  if (j === 2) return hiver ? 13 : 14;        // mardi : 13 h 30 (hiver) / 14 h (été)
+  return 9;
+}
+function heureDepartTexte(iso){
+  const j = new Date(iso + "T12:00:00").getDay();
+  if (j !== 0 && j !== 2) return "9 h";
+  const hiver = [9,10,11,0,1,2].includes(Number(iso.slice(5,7)) - 1);
+  if (j === 0) return hiver ? "9 h" : "8 h 30";
+  return hiver ? "13 h 30" : "14 h";
+}
+function wmoIcon(c){
+  if (c == null) return "🌡️";
+  if (c === 0) return "☀️";
+  if (c <= 2) return "🌤️";
+  if (c === 3) return "☁️";
+  if (c === 45 || c === 48) return "🌫️";
+  if (c >= 51 && c <= 57) return "🌦️";
+  if (c >= 61 && c <= 67) return "🌧️";
+  if (c >= 71 && c <= 77) return "❄️";
+  if (c >= 80 && c <= 82) return "🌧️";
+  if (c === 85 || c === 86) return "🌨️";
+  if (c >= 95) return "⛈️";
+  return "🌡️";
+}
+function wmoTexte(c){
+  if (c == null) return "Météo inconnue";
+  if (c === 0) return "Ciel clair";
+  if (c === 1) return "Plutôt clair";
+  if (c === 2) return "Partiellement nuageux";
+  if (c === 3) return "Couvert";
+  if (c === 45 || c === 48) return "Brouillard";
+  if (c >= 51 && c <= 55) return "Bruine";
+  if (c === 56 || c === 57) return "Bruine verglaçante";
+  if (c >= 61 && c <= 65) return "Pluie";
+  if (c === 66 || c === 67) return "Pluie verglaçante";
+  if (c >= 71 && c <= 77) return "Neige";
+  if (c >= 80 && c <= 82) return "Averses";
+  if (c === 85 || c === 86) return "Averses de neige";
+  if (c >= 95) return "Orage";
+  return "Météo";
+}
+function card16(d){                           // direction d'où vient le vent (rose à 16 branches, en français)
+  const noms = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
+  return noms[Math.round((((d || 0) % 360) + 360) % 360 / 22.5) % 16];
+}
+function ligneMeteo(iso){                     // petite ligne météo ajoutée en bas de la cellule
+  const w = METEO[iso];
+  const el = document.createElement("div");
+  el.className = "wx";
+  el.title = wmoTexte(w.c) + " vers " + heureDepartTexte(iso)
+    + "\nMin " + (w.tn == null ? "?" : w.tn) + "° · max " + (w.tx == null ? "?" : w.tx) + "° · pluie " + w.p + " mm"
+    + "\nVent " + w.w + " km/h de " + card16(w.d);
+  el.innerHTML = '<span class="wemo">' + wmoIcon(w.c) + '</span><span class="wtemp">' + w.t + '°</span>';
+  const wd = document.createElement("span");
+  wd.className = "wnd";
+  const fl = document.createElement("span");
+  fl.className = "wfl";
+  fl.style.transform = "rotate(" + (((w.d || 0) + 180) % 360) + "deg)";   // flèche = sens où va le vent
+  fl.textContent = "↑";
+  wd.appendChild(fl);
+  wd.appendChild(document.createTextNode(w.w));
+  el.appendChild(wd);
+  return el;
 }
 
 function esc(s){ return s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
@@ -724,6 +801,8 @@ async function downloadGpx(iso, i){
 //      mémorisé entre les visites et réversible (♻️ Tracé officiel) ----
 const IMPORTS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_gpx_roule") || "{}") || {}; } catch (e) { return {}; } })();
 const EFFETIFS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_effectifs") || "{}") || {}; } catch (e) { return {}; } })();   // { "iso#label": nb cyclistes }
+const METEO = (function(){ try { return JSON.parse(localStorage.getItem("vscb_meteo") || "{}") || {}; } catch (e) { return {}; } })();   // { "AAAA-MM-JJ": {c,t,w,d,tn,tx,p} }
+const METEO_LIEU = { nom: "Beauvoir-sur-Niort", lat: 46.18198, lon: -0.47396 };
 let importEnCours = null;   // {iso, i} : circuit visé par le bouton 📥 en attente du fichier
 
 function distH(a, b){                    // distance haversine en mètres entre 2 points [lat,lon]
@@ -2005,6 +2084,7 @@ const helpItems = [
   { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. ♻️ Tracé officiel restaure le GPX du club." },
   { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Permet de sauvegarder tous les imports dans un fichier JSON (parcours_roules_vscb.json) et d'en recharger un fichier (fusion). Chaque parcours peut être retiré individuellement." },
   { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
+  { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
   { t: "🔍 Recherche commune", d: "Tapez le nom d'une commune (ex. Coulon, Chizé…) dans la barre de recherche pour trouver tous les circuits qui la traversent. Les résultats sont cliquables pour ouvrir la fiche correspondante." },
   { t: "📅 Aujourd'hui", d: "Ramène le calendrier au mois en cours et met en évidence le jour actuel." },
@@ -2124,6 +2204,82 @@ async function chargerEffectifs(){
   }
 }
 chargerEffectifs();
+
+// ---- Météo : fichier meteo.json sur GitHub, sinon API Open-Meteo (puis cache local) ----
+function isoDecale(iso, n){ const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toLocaleDateString("sv-SE"); }
+function datesEntre(a, b){ const out = []; let d = a; while (d <= b && out.length < 800) { out.push(d); d = isoDecale(d, 1); } return out; }
+function exploiterMeteo(d){                    // remplit METEO depuis une réponse Open-Meteo (forecast ou archive)
+  if (!d || !d.hourly || !d.hourly.time) return 0;
+  const hidx = {};
+  d.hourly.time.forEach((t, i) => { const p = t.split("T"); hidx[p[0] + "|" + Number(p[1].slice(0, 2))] = i; });
+  const jidx = {};
+  if (d.daily && d.daily.time) d.daily.time.forEach((t, k) => { jidx[t] = k; });
+  let n = 0;
+  Object.keys(jidx).forEach(iso => {
+    const i = hidx[iso + "|" + heureRef(iso)];
+    if (i == null || d.hourly.temperature_2m[i] == null) return;
+    const k = jidx[iso], H = d.hourly, D = d.daily;
+    METEO[iso] = {
+      c: H.weather_code ? H.weather_code[i] : null,
+      t: Math.round(H.temperature_2m[i]),
+      w: Math.round(H.wind_speed_10m ? H.wind_speed_10m[i] : 0),
+      d: Math.round(H.wind_direction_10m ? (H.wind_direction_10m[i] || 0) : 0),
+      tn: D.temperature_2m_min ? Math.round(D.temperature_2m_min[k]) : null,
+      tx: D.temperature_2m_max ? Math.round(D.temperature_2m_max[k]) : null,
+      p: D.precipitation_sum ? Math.round((D.precipitation_sum[k] || 0) * 10) / 10 : 0
+    };
+    n++;
+  });
+  return n;
+}
+let meteoOccupe = false;
+async function chargerMeteo(){
+  // 1) fichier partagé meteo.json (GitHub) : il fait référence pour les dates qu'il contient
+  for (const u of ["meteo.json", "https://ppccoder.github.io/vscb-circuits/meteo.json"]) {
+    try {
+      const r = await fetch(u, { cache: "no-cache" });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!d || !d.jours) continue;
+      let n = 0;
+      for (const iso in d.jours) {
+        const v = d.jours[iso];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && v && typeof v.t === "number") { METEO[iso] = v; n++; }
+      }
+      if (n) { try { localStorage.setItem("vscb_meteo", JSON.stringify(METEO)); } catch (e) {} }
+      break;
+    } catch (e) {}
+  }
+  // 2) dates à couvrir : du 1/10/2026 au 15e jour suivant
+  const besoin = datesEntre("2026-10-01", isoDecale(todayISO, 15)).filter(iso => !METEO[iso]);
+  if (!besoin.length) { renderMonth(); return; }
+  // pas plus d'un appel toutes les 3 heures (le fichier suffit en temps normal)
+  if (Date.now() - Number(localStorage.getItem("vscb_meteo_maj") || 0) < 3 * 3600 * 1000) { renderMonth(); return; }
+  if (meteoOccupe) return;
+  meteoOccupe = true;
+  let n = 0;
+  const urlF = "https://api.open-meteo.com/v1/forecast?latitude=" + METEO_LIEU.lat + "&longitude=" + METEO_LIEU.lon
+    + "&hourly=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m"
+    + "&daily=temperature_2m_min,temperature_2m_max,precipitation_sum"
+    + "&timezone=Europe%2FParis&past_days=92&forecast_days=16";
+  try { const r = await fetch(urlF); if (r.ok) n += exploiterMeteo(await r.json()); } catch (e) {}
+  // 3) jours antérieurs à la fenêtre de 92 jours (à partir de janvier 2027) : archive ERA5
+  const reste = besoin.filter(iso => !METEO[iso]);
+  if (reste.length) {
+    const urlA = "https://archive-api.open-meteo.com/v1/archive?latitude=" + METEO_LIEU.lat + "&longitude=" + METEO_LIEU.lon
+      + "&start_date=" + reste[0] + "&end_date=" + reste[reste.length - 1]
+      + "&hourly=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m"
+      + "&daily=temperature_2m_min,temperature_2m_max,precipitation_sum&timezone=Europe%2FParis";
+    try { const r = await fetch(urlA); if (r.ok) n += exploiterMeteo(await r.json()); } catch (e) {}
+  }
+  meteoOccupe = false;
+  try {
+    localStorage.setItem("vscb_meteo", JSON.stringify(METEO));
+    localStorage.setItem("vscb_meteo_maj", String(Date.now()));
+  } catch (e) {}
+  if (n) renderMonth();
+}
+chargerMeteo();
 
 // flèche ‹ du téléphone/navigateur : revient à l'écran précédent du programme ;
 // au niveau du calendrier (base), ‹ quitte normalement le site
