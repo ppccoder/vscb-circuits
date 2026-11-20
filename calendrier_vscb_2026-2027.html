@@ -32,9 +32,15 @@
   .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 2px}
   /* Barre fixe (recherche + boutons + libellé de résultat) — sous l'en-tête */
   .topbar{position:sticky;top:var(--hdrH,72px);z-index:40;background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.65);padding-top:10px;padding-bottom:6px;box-shadow:0 8px 14px -10px rgba(20,30,45,.22);margin-bottom:4px}
-  .searchwrap{position:relative;flex:1;min-width:230px;max-width:420px}
-  #search{width:100%;padding:9px 12px 9px 34px;border:1px solid rgba(255,255,255,.7);border-radius:10px;font:inherit;background:rgba(255,255,255,.65)}
-  .searchwrap::before{content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.6}
+  /* Recherche de commune : bouton loupe + fenêtre de saisie */
+  #searchBtn{font-size:1rem;padding:7px 14px}
+  #rechPanel{display:none;flex-direction:column;position:fixed;z-index:1200;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,430px);background:rgba(255,255,255,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 12px 40px rgba(20,30,45,.28);padding:14px 16px 16px}
+  #rechPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
+  #rechPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 10px}
+  #rechPanel .vfermer{position:absolute;top:8px;right:10px;border:none;background:rgba(255,255,255,.6);border-radius:99px;width:28px;height:28px;font-size:14px;cursor:pointer;color:#33404a}
+  #rechInput{width:100%;padding:10px 12px;border:1px solid rgba(46,125,79,.35);border-radius:10px;font:inherit;background:#fff;color:#1f2d38}
+  #rechInput:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .rechmsg{margin-top:9px;font-size:.8rem;line-height:1.35;color:#8f2418;background:#fdecea;border:1px solid rgba(192,57,43,.4);border-radius:10px;padding:8px 10px}
   .legend{display:none}
   .btn.navbtn{width:46px;height:46px;padding:0;border-radius:50%;background:radial-gradient(circle at 32% 28%,#ffffff,#eef1f5);border:4px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 3px 8px rgba(20,30,45,.28),inset 0 2px 2px rgba(255,255,255,.5);transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
   .btn.navbtn:hover{transform:scale(1.08);border-color:#256b42;color:#256b42;background:radial-gradient(circle at 32% 28%,#ffffff,#eef1f5);box-shadow:0 4px 10px rgba(20,30,45,.32),inset 0 2px 2px rgba(255,255,255,.5)}
@@ -131,9 +137,9 @@
   /* Vue liste */
   #listView{display:none}  .lmonth{margin:18px 0 6px}
   /* en mode liste : la ligne recherche + Liste/Imprimer + Aujourd'hui disparaît (seuls restent Imprimer/PDF et Retour) */
-  .toolbar.mode-liste .searchwrap, .toolbar.mode-liste #listBtn, .toolbar.mode-liste #todayBtn, .toolbar.mode-liste #ventBtn, .toolbar.mode-liste #parcBtn, .toolbar.mode-liste #helpBtn{display:none}
+  .toolbar.mode-liste #searchBtn, .toolbar.mode-liste #listBtn, .toolbar.mode-liste #todayBtn, .toolbar.mode-liste #ventBtn, .toolbar.mode-liste #parcBtn, .toolbar.mode-liste #helpBtn{display:none}
   /* Vue circuit plein écran (façon vue liste) : barre dédiée + fiche intégrée à la page */
-  .toolbar.mode-circ .searchwrap, .toolbar.mode-circ #listBtn, .toolbar.mode-circ #todayBtn, .toolbar.mode-circ #ventBtn, .toolbar.mode-circ #parcBtn, .toolbar.mode-circ #helpBtn{display:none}
+  .toolbar.mode-circ #searchBtn, .toolbar.mode-circ #listBtn, .toolbar.mode-circ #todayBtn, .toolbar.mode-circ #ventBtn, .toolbar.mode-circ #parcBtn, .toolbar.mode-circ #helpBtn{display:none}
   #circHead{display:none;max-width:960px;margin:2px auto 10px}
   #circHead h2{margin:0 0 2px;font-size:1.15rem}
   #circHead .date-sub{color:var(--muted);font-size:.85rem}
@@ -144,7 +150,7 @@
   #circActions{display:none;gap:6px;flex-wrap:wrap;align-items:center}
   #circActions .csel:first-child{margin-left:8px}
   /* Vue roadbook intégrée (façon vue circuit) : barre dédiée + contenu imprimable dans la page */
-  .toolbar.mode-rb .searchwrap, .toolbar.mode-rb #listBtn, .toolbar.mode-rb #todayBtn, .toolbar.mode-rb #ventBtn, .toolbar.mode-rb #circActions, .toolbar.mode-rb #parcBtn, .toolbar.mode-rb #helpBtn{display:none}
+  .toolbar.mode-rb #searchBtn, .toolbar.mode-rb #listBtn, .toolbar.mode-rb #todayBtn, .toolbar.mode-rb #ventBtn, .toolbar.mode-rb #circActions, .toolbar.mode-rb #parcBtn, .toolbar.mode-rb #helpBtn{display:none}
   #rbActions{display:none;gap:10px}
   #rbView{display:none;max-width:210mm;margin:6px auto 24px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:16px 18px;box-shadow:0 4px 16px rgba(20,30,45,.10)}
   @media print{#rbView{display:block !important;max-width:none;border:none;box-shadow:none;margin:0;padding:0}}
@@ -214,7 +220,7 @@
   .ln .path{color:#333d49}
   @media print{
     body{background:#fff;font-size:11.5pt}
-    header, #topbar, #listActions, #calView, #results, .overlay, #stats, #ventPanel, #parcPanel, #effPanel, #helpPanel{display:none !important}
+    header, #topbar, #listActions, #calView, #results, .overlay, #stats, #ventPanel, #parcPanel, #effPanel, #helpPanel, #rechPanel{display:none !important}
     .lmonth{page-break-inside:avoid;page-break-after:always}
     .lsess{break-inside:avoid;box-shadow:none;border:1px solid #999;background:#fff;backdrop-filter:none}
     body.printing #listView{display:block !important}
@@ -280,7 +286,7 @@
 <main class="wrap">
   <div id="topbar" class="topbar">
     <div class="toolbar">
-      <div class="searchwrap"><input id="search" type="search" placeholder="Rechercher une commune (ex. Coulon, Chizé…)" autocomplete="off"></div>
+      <button class="btn" id="searchBtn" title="Rechercher une commune (ex. Coulon, Chizé…)">🔍 Commune</button>
       <button class="btn" id="listBtn" title="Liste complète de la saison">📃 Liste / Imprimer</button>
       <button class="btn" id="ventBtn" title="Circuits selon le vent (1re moitié face au vent, 2e sous le vent)">🧭 Vent</button>
       <button class="btn" id="todayBtn" title="Aller au mois courant">📅 Aujourd'hui</button>
@@ -339,6 +345,18 @@
     <div id="helpListe"></div>
     <div class="parcBtns" style="justify-content:center">
       <button class="btn" id="helpFermer" title="Fermer l'aide">✅ Fermer</button>
+    </div>
+  </div>
+
+  <div id="rechPanel" role="dialog" aria-label="Rechercher une commune">
+    <button class="vfermer" id="rechClose" title="Fermer">✕</button>
+    <h3>🔍 Rechercher une commune</h3>
+    <p class="note">Tapez le nom d'une commune (ex. Coulon, Chizé, Beauvoir…) puis <b>OK</b> : la liste des circuits qui la traversent s'affiche.</p>
+    <input id="rechInput" type="search" placeholder="Nom de la commune…" autocomplete="off" enterkeyhint="search">
+    <div id="rechMsg" class="rechmsg" style="display:none" role="alert"></div>
+    <div class="parcBtns">
+      <button class="btn" id="rechOk" title="Lancer la recherche">✅ OK</button>
+      <button class="btn" id="rechAnnuler" title="Fermer sans rechercher" style="border-color:#c0392b;background:#fdecea;color:#8f2418">✖ Annuler</button>
     </div>
   </div>
 
@@ -798,6 +816,7 @@ function restaurerVue(s){
   // fermer proprement tout ce qui est ouvert, puis rouvrir la vue cible
   document.body.classList.remove("printing");
   ventPanel.style.display = "none";
+  if (rechPanel) rechPanel.style.display = "none";      // fenêtre de recherche de commune
   calView.style.display = "none";
   resultsBox.style.display = "none";
   document.getElementById("searchHint").style.display = "none";
@@ -1774,16 +1793,44 @@ document.getElementById("todayBtn").onclick = () => {
   else window.scrollTo({top:0, behavior:"smooth"});
 };
 
-// ---- Recherche : liste des circuits contenant le texte cherché ----
-const search = document.getElementById("search");
-search.addEventListener("input", runSearch);
+// ---- Recherche : bouton loupe → fenêtre de saisie → liste des circuits ----
+const rechPanel = document.getElementById("rechPanel");
+const rechInput = document.getElementById("rechInput");
+const rechMsg = document.getElementById("rechMsg");
+function ouvrirRech(){
+  rechMsg.style.display = "none"; rechMsg.textContent = "";
+  rechPanel.style.display = "flex";
+  setTimeout(() => { try { rechInput.focus(); rechInput.select(); } catch (e) {} }, 40);
+}
+function fermerRech(){ rechPanel.style.display = "none"; }
+function messageRech(t){ rechMsg.textContent = "⚠️ " + t; rechMsg.style.display = "block"; }
+function validerRech(){
+  const q = rechInput.value.trim();
+  if (!q) { messageRech("Saisissez le nom d'une commune avant de valider."); return; }
+  const n = runSearch(q);
+  if (!n) {                                  // aucune commune : message d'anomalie, la fenêtre reste ouverte
+    messageRech("Aucune commune trouvée pour « " + q + " ». Vérifiez l'orthographe (ex. Chizé, Coulon, Beauvoir…).");
+    return;
+  }
+  fermerRech();
+}
+document.getElementById("searchBtn").onclick = () => {
+  if (rechPanel.style.display === "flex") fermerRech(); else ouvrirRech();
+};
+document.getElementById("rechClose").onclick = fermerRech;
+document.getElementById("rechAnnuler").onclick = fermerRech;
+document.getElementById("rechOk").onclick = validerRech;
+rechInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); validerRech(); }
+  else if (e.key === "Escape") { e.preventDefault(); fermerRech(); }
+});
 
-function runSearch(){
-  const q = search.value.trim();
+function runSearch(q){
+  q = (q || "").trim();
   const sh = document.getElementById("searchHint");
   if (!q) { resultsBox.style.display = "none"; resultsBox.innerHTML = ""; sh.style.display = "none"; calView.style.display = ""; document.getElementById("stats").textContent = statsText;
     if (history.state && history.state.vue === "rech") history.back();   // sort l'écran « recherche » de l'historique
-    return; }
+    return 0; }
   const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), "i");
   const etaitCache = resultsBox.style.display !== "block";   // pour une seule entrée d'historique par recherche
   let n = 0;
@@ -1798,17 +1845,18 @@ function runSearch(){
       }).join("");
       return items;
     }).join("");
+  if (!n) return 0;                          // aucune commune : le calendrier reste affiché
   calView.style.display = "none";
   resultsBox.style.display = "block";
   sh.style.display = "block";
-  sh.textContent = n
-    ? `${n} circuit${n>1?"s":""} traversant « ${q} » — cliquez pour voir le détail :`
-    : `Aucun circuit ne traverse « ${q} »`;
+  sh.textContent = `${n} circuit${n>1?"s":""} traversant « ${q} » — cliquez pour voir le détail :`;
   resultsBox.innerHTML = html;
   resultsBox.querySelectorAll(".res").forEach(r => r.onclick = () => openDay(r.dataset.iso));
   if (etaitCache) pousserVue({ vue: "rech" });          // une seule entrée d'historique par session de recherche
   document.getElementById("stats").textContent = "";
+  return n;
 }
+
 
 // ---- Vue liste / impression ----
 let triListe = "date", triSens = 1;   // tri courant de la vue liste
@@ -2209,7 +2257,7 @@ const helpItems = [
   { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
-  { t: "🔍 Recherche commune", d: "Tapez le nom d'une commune (ex. Coulon, Chizé…) dans la barre de recherche pour trouver tous les circuits qui la traversent. Les résultats sont cliquables pour ouvrir la fiche correspondante." },
+  { t: "🔍 Recherche commune", d: "Cliquez sur le bouton 🔍 Commune : une fenêtre s'ouvre. Tapez le nom d'une commune (ex. Coulon, Chizé…) puis ✅ OK (ou la touche Entrée) pour afficher tous les circuits qui la traversent ; ✖ Annuler ferme la fenêtre. Si le nom n'est pas trouvé, un message d'anomalie le signale et la fenêtre reste ouverte pour corriger la saisie. Les résultats sont cliquables pour ouvrir la fiche correspondante." },
   { t: "📅 Aujourd'hui", d: "Fait défiler la liste jusqu'à la ligne du jour actuel et la met en évidence." },
   { t: "Hors-ligne", d: "Une fois les tracés téléchargés au moins une fois, une copie est conservée dans le navigateur (IndexedDB) : le calendrier et les circuits fonctionnent sans connexion. Une copie de secours des imports et effectifs peut aussi être exportée en JSON." }
 ];
