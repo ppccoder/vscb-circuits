@@ -33,7 +33,6 @@
   /* Barre fixe (recherche + boutons + libellé de résultat) — sous l'en-tête */
   .topbar{position:sticky;top:var(--hdrH,72px);z-index:40;background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.65);padding-top:10px;padding-bottom:6px;box-shadow:0 8px 14px -10px rgba(20,30,45,.22);margin-bottom:4px}
   /* Recherche de commune : bouton loupe + fenêtre de saisie */
-  #searchBtn{font-size:1rem;padding:7px 14px}
   #rechPanel{display:none;flex-direction:column;position:fixed;z-index:1200;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,430px);background:rgba(255,255,255,.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 12px 40px rgba(20,30,45,.28);padding:14px 16px 16px}
   #rechPanel h3{margin:0 26px 4px 0;font-size:1.05rem}
   #rechPanel .note{font-size:.78rem;color:var(--muted);margin:0 0 10px}
@@ -246,7 +245,7 @@
     body.printing #listView{display:block !important}
   }
   /* Résultats de recherche */
-  #results{display:none}
+  #results{display:none;padding-top:8px}
   .res{background:rgba(255,255,255,.58);border:1px solid rgba(255,255,255,.75);border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:.15s}
   .res:hover{border-color:var(--accent)}
   .res .rd{font-weight:650;font-size:.9rem}
@@ -296,7 +295,10 @@
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
     </div>
-    <div class="hint" id="searchHint" style="display:none;margin:2px 0 0"></div>
+    <div class="hint" id="searchHint" style="display:none;margin:2px 0 0;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="searchHintTxt"></span>
+      <button class="btn" id="resBack" title="Fermer les résultats et revenir au calendrier complet">↩ Calendrier complet</button>
+    </div>
   </div>
 
   <div id="calView">
@@ -801,7 +803,7 @@ function fermerCirc(){
     document.querySelector("#topbar .toolbar").classList.add("mode-liste");
   } else if (circRetour === "rech") {
     resultsBox.style.display = "block";
-    document.getElementById("searchHint").style.display = "block";
+    document.getElementById("searchHint").style.display = "flex";
   } else {
     calView.style.display = "";
   }
@@ -838,7 +840,7 @@ function restaurerVue(s){
     afficherListe(true);
   } else if (s && s.vue === "rech" && document.getElementById("results").children.length) {
     resultsBox.style.display = "block";
-    document.getElementById("searchHint").style.display = "block";
+    document.getElementById("searchHint").style.display = "flex";
     document.getElementById("stats").textContent = "";
     window.scrollTo({ top: 0 });
   } else {                                          // calendrier (base)
@@ -1820,6 +1822,7 @@ document.getElementById("searchBtn").onclick = () => {
 document.getElementById("rechClose").onclick = fermerRech;
 document.getElementById("rechAnnuler").onclick = fermerRech;
 document.getElementById("rechOk").onclick = validerRech;
+document.getElementById("resBack").onclick = () => runSearch("");   // ↩ retour au calendrier complet
 rechInput.addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); validerRech(); }
   else if (e.key === "Escape") { e.preventDefault(); fermerRech(); }
@@ -1848,12 +1851,13 @@ function runSearch(q){
   if (!n) return 0;                          // aucune commune : le calendrier reste affiché
   calView.style.display = "none";
   resultsBox.style.display = "block";
-  sh.style.display = "block";
-  sh.textContent = `${n} circuit${n>1?"s":""} traversant « ${q} » — cliquez pour voir le détail :`;
+  sh.style.display = "flex";
+  document.getElementById("searchHintTxt").textContent = `${n} circuit${n>1?"s":""} traversant « ${q} » — cliquez pour voir le détail :`;
   resultsBox.innerHTML = html;
   resultsBox.querySelectorAll(".res").forEach(r => r.onclick = () => openDay(r.dataset.iso));
   if (etaitCache) pousserVue({ vue: "rech" });          // une seule entrée d'historique par session de recherche
   document.getElementById("stats").textContent = "";
+  window.scrollTo({ top: 0 });                          // la liste commence sous la barre de boutons
   return n;
 }
 
@@ -2257,7 +2261,7 @@ const helpItems = [
   { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
-  { t: "🔍 Recherche commune", d: "Cliquez sur le bouton 🔍 Commune : une fenêtre s'ouvre. Tapez le nom d'une commune (ex. Coulon, Chizé…) puis ✅ OK (ou la touche Entrée) pour afficher tous les circuits qui la traversent ; ✖ Annuler ferme la fenêtre. Si le nom n'est pas trouvé, un message d'anomalie le signale et la fenêtre reste ouverte pour corriger la saisie. Les résultats sont cliquables pour ouvrir la fiche correspondante." },
+  { t: "🔍 Recherche commune", d: "Cliquez sur le bouton 🔍 Commune : une fenêtre s'ouvre. Tapez le nom d'une commune (ex. Coulon, Chizé…) puis ✅ OK (ou la touche Entrée) pour afficher tous les circuits qui la traversent ; ✖ Annuler ferme la fenêtre. Si le nom n'est pas trouvé, un message d'anomalie le signale et la fenêtre reste ouverte pour corriger la saisie. La liste s'affiche sous la barre de boutons ; le bouton ↩ Calendrier complet (toujours visible) referme les résultats et revient au calendrier. Chaque résultat est cliquable pour ouvrir la fiche correspondante." },
   { t: "📅 Aujourd'hui", d: "Fait défiler la liste jusqu'à la ligne du jour actuel et la met en évidence." },
   { t: "Hors-ligne", d: "Une fois les tracés téléchargés au moins une fois, une copie est conservée dans le navigateur (IndexedDB) : le calendrier et les circuits fonctionnent sans connexion. Une copie de secours des imports et effectifs peut aussi être exportée en JSON." }
 ];
