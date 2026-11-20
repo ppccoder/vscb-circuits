@@ -1087,17 +1087,53 @@ function importerGpxTexte(txt, nom, cible){
       : "\n\n⚠️ Mémorisation impossible sur cet appareil (" + memoNom + " · stockage utilisé : " + Math.round(usage/1024) + " Ko) : ce remplacement ne durera que pour cette session.\nCauses possibles : navigation privée, réglage bloquant les données de site, stockage saturé — l'import a quand même été appliqué."));
 }
 
+// ---- Orientation d'un parcours importé : axe de la plus grande diagonale du parcours ----
+function capDeg(a, b){                    // cap initial (degrés depuis le nord) du point a vers le point b
+  const r = Math.PI / 180;
+  const la1 = a[0] * r, la2 = b[0] * r, dl = (b[1] - a[1]) * r;
+  const y = Math.sin(dl) * Math.cos(la2);
+  const x = Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dl);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function orientationTrace(pts){
+  if (!pts || pts.length < 2) return "";
+  // échantillonnage : au plus ~800 points, dernier point toujours conservé
+  const pas = Math.max(1, Math.ceil(pts.length / 800));
+  const ech = [];
+  for (let k = 0; k < pts.length; k += pas) ech.push(pts[k]);
+  if (ech[ech.length - 1] !== pts[pts.length - 1]) ech.push(pts[pts.length - 1]);
+  // projection équirectangulaire (degrés corrigés en longitude) : distances comparables
+  const r = Math.PI / 180;
+  const lat0 = ech.reduce((s, p) => s + p[0], 0) / ech.length;
+  const kx = Math.cos(lat0 * r);
+  const X = ech.map(p => p[1] * kx), Y = ech.map(p => p[0]);
+  let bi = 0, bj = 1, best = -1;
+  for (let a = 0; a < ech.length - 1; a++) {
+    const xa = X[a], ya = Y[a];
+    for (let b = a + 1; b < ech.length; b++) {
+      const dx = X[b] - xa, dy = Y[b] - ya, dd = dx * dx + dy * dy;
+      if (dd > best) { best = dd; bi = a; bj = b; }
+    }
+  }
+  // la diagonale relie les deux points les plus éloignés ; son sens suit l'ordre du parcours
+  const az = capDeg(ech[bi], ech[bj]);
+  const idx = Math.round(az / 22.5) % 16;
+  return COMPASS[idx] + " → " + COMPASS[(idx + 8) % 16];
+}
+
 function appliqueImport(key, d){         // remplace tracé + km + profil + communes traversées en mémoire
   const t = TRACKS[key]; if (!t) return false;
   const c = byISO[d.iso] && byISO[d.iso].circuits[d.i];
   if (!t._officiel) t._officiel = { pts: t.pts, km: t.km, asc: t.asc, min: t.min, max: t.max,
-                                    full: FULLPTS[key] || null, ckm: c ? c.km : null,
+                                    full: FULLPTS[key] || null, ckm: c ? c.km : null, ori: t.ori,
                                     stops: c ? c.stops : null, geo: c ? c.geo : null, route: c ? c.route : null };
   // coordonnées arrondies (5 décimales ≈ 1 m, altitude entière) : stockage allégé sur le téléphone
   const ptsS = d.pts.map(p => [+p[0].toFixed(5), +p[1].toFixed(5), p[2] == null ? null : Math.round(p[2])]);
   t.pts = ptsS; FULLPTS[key] = ptsS;
   t.km = Math.round(d.km * 10) / 10;
   t.asc = d.asc; t.min = d.min; t.max = d.max;
+  const ori = orientationTrace(ptsS);        // axe de la plus grande diagonale du parcours importé
+  if (ori) t.ori = ori;
   if (c) {
     c.km = t.km;
     const det = communesDeTrace(ptsS);      // communes réellement traversées, ordre du parcours
@@ -1119,7 +1155,7 @@ function assureCircuitRoule(iso, lab){   // fiche « parcours roulé » pour un 
     ev.circuits.push(c);
   }
   const key = tk(iso, c);
-  if (!TRACKS[key]) TRACKS[key] = { f: "roule_" + iso + ".gpx", km: "", kmc: "", asc: "", min: "", max: "", pts: [], ori: "?" };
+  if (!TRACKS[key]) TRACKS[key] = { f: "roule_" + iso + ".gpx", km: "", kmc: "", asc: "", min: "", max: "", pts: [], ori: "" };
   return c;
 }
 
@@ -1154,6 +1190,7 @@ function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du c
   }
   t.pts = t._officiel.pts; t.km = t._officiel.km; t.asc = t._officiel.asc;
   t.min = t._officiel.min; t.max = t._officiel.max;
+  if (t._officiel.ori != null) t.ori = t._officiel.ori;   // orientation officielle du club restaurée
   if (t._officiel.full) FULLPTS[key] = t._officiel.full;
   if (c && t._officiel.ckm != null) c.km = t._officiel.ckm;
   if (c && t._officiel.stops) { c.stops = t._officiel.stops; c.geo = t._officiel.geo; c.route = t._officiel.route; }
@@ -2167,7 +2204,7 @@ const helpPanel = document.getElementById("helpPanel");
 const helpItems = [
   { t: "Calendrier", d: "Une ligne par journée, les unes sous les autres : faites défiler de haut en bas (et inversement). En arrivant en bas, le mois suivant s'ajoute automatiquement ; en remontant, le mois précédent. Chaque sortie affiche les mêmes informations que la vue Liste : numéro de circuit, kilométrage, dénivelé, orientation et communes traversées (puce orangée = tracé roulé importé). Les autres jours restent cliquables pour y importer un GPX." },
   { t: "Fiche circuit", d: "Cliquez sur une puce km pour ouvrir la fiche d'un circuit : nom, communes traversées, boutons 🗺️ Tracé GPX (carte Leaflet), 📍 Position, 🧭 Roadbook (tableau km/cap/altitude), et ⬇ Télécharger GPX." },
-  { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. ♻️ Tracé officiel restaure le GPX du club." },
+  { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. L'orientation 🧭 est recalculée selon l'axe de la plus grande diagonale du parcours (du premier au second point le plus éloigné, dans le sens du tracé). ♻️ Tracé officiel restaure le GPX et l'orientation du club." },
   { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Permet de sauvegarder tous les imports dans un fichier JSON (parcours_roules_vscb.json) et d'en recharger un fichier (fusion). Chaque parcours peut être retiré individuellement." },
   { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
