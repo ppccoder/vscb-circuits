@@ -36,8 +36,6 @@
   #search{width:100%;padding:9px 12px 9px 34px;border:1px solid rgba(255,255,255,.7);border-radius:10px;font:inherit;background:rgba(255,255,255,.65)}
   .searchwrap::before{content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.6}
   .legend{display:none}
-  .mois-nav{display:flex;justify-content:center;align-items:center;margin:12px 0 8px}
-  .mois-nav h2{margin:0;font-size:1.05rem;text-transform:capitalize;flex:1;text-align:center;color:#1f5c39}
   .btn.navbtn{width:46px;height:46px;padding:0;border-radius:50%;background:radial-gradient(circle at 32% 28%,#ffffff,#eef1f5);border:4px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 3px 8px rgba(20,30,45,.28),inset 0 2px 2px rgba(255,255,255,.5);transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
   .btn.navbtn:hover{transform:scale(1.08);border-color:#256b42;color:#256b42;background:radial-gradient(circle at 32% 28%,#ffffff,#eef1f5);box-shadow:0 4px 10px rgba(20,30,45,.32),inset 0 2px 2px rgba(255,255,255,.5)}
   .btn.navbtn svg{display:block}
@@ -296,9 +294,6 @@
   </div>
 
   <div id="calView">
-    <div class="mois-nav">
-      <h2 id="moisLabel"></h2>
-    </div>
     <div class="grid" id="grid"></div>
   </div>
 
@@ -417,7 +412,6 @@ function evDe(iso){                      // entrée calendrier de la date (cré�
   return byISO[iso];
 }
 const grid = document.getElementById("grid");
-const moisLabel = document.getElementById("moisLabel");
 const overlay = document.getElementById("overlay");
 const resultsBox = document.getElementById("results");
 const calView = document.getElementById("calView");
@@ -436,9 +430,8 @@ function moisValide(my){
   if (!MOIS_MAX) MOIS_MAX = SAISON_FIN ? decaleMois(SAISON_FIN.slice(0, 7), 24) : "2029-09";
   return my <= MOIS_MAX;
 }
-function majEntete(){                           // libellé du mois, horaires, bandeau reconduction
-  const m = cur.getMonth(), y = cur.getFullYear();
-  moisLabel.textContent = MOIS[m] + " " + y;
+function majEntete(){                           // horaires du mois visible + bandeau de reconduction
+  const m = cur.getMonth();
   const hiver = [9, 10, 11, 0, 1, 2].includes(m);
   const hb = document.getElementById("horairesBadge");
   if (hb) hb.textContent = hiver
