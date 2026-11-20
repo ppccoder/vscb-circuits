@@ -43,8 +43,27 @@
   .btn.navbtn svg{display:block}
   .btn{border:1px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:7px 13px;cursor:pointer;font:inherit;font-size:.85rem;font-weight:600;color:#1f5c39;transition:.15s}
   .btn:hover{border-color:var(--accent);background:var(--accent);color:#fff}
-  .dow,.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  #calView{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;transition:none}
+  .grid{display:flex;flex-direction:column;gap:6px;padding-bottom:44px}
+  #calView{transition:none}
+  /* Liste verticale : une ligne par journée */
+  .mblock{display:flex;flex-direction:column;gap:6px}
+  .mhead{margin:16px 4px 0;font-size:.98rem;color:#1f5c39;font-weight:700;text-transform:capitalize;letter-spacing:.2px}
+  .mblock:first-child .mhead{margin-top:4px}
+  .mnote{font-size:.76rem;color:#7a5c1e;background:rgba(240,165,0,.14);border:1px solid rgba(240,165,0,.35);border-radius:10px;padding:6px 10px;margin:2px 0}
+  .drow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.8);border-left:3px solid transparent;border-radius:10px;padding:7px 10px;cursor:pointer;box-shadow:0 1px 3px rgba(20,30,45,.05);transition:.15s}
+  .drow:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+  .drow.dim{border-left-color:var(--sunday)}
+  .drow.mar{border-left-color:var(--tuesday)}
+  .drow.today{outline:2px solid var(--accent);outline-offset:-2px}
+  .drow .ddate{flex:0 0 44px;display:flex;flex-direction:column;align-items:center;line-height:1.05}
+  .drow .dnum{font-size:1.08rem;font-weight:700;color:#33404a}
+  .drow .dwd{font-size:.64rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+  .drow.dim .dnum{color:var(--sunday)} .drow.mar .dnum{color:var(--tuesday)}
+  .drow.off .dnum{font-weight:600;color:#9aa8b3}
+  .drow .dmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .drow .dcir{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .drow .dchev{flex:0 0 auto;color:#b9c5cf;font-size:1.15rem;line-height:1}
+  .drow.off .wx{opacity:.72}
   .dow div{text-align:center;font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 0}
   .cell{min-height:76px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.75);border-radius:10px;padding:6px 7px;display:flex;flex-direction:column;gap:3px;position:relative;box-shadow:0 1px 3px rgba(20,30,45,.05)}
   .cell .num{font-size:.85rem;font-weight:650}
@@ -55,7 +74,7 @@
   .chip.s{background:var(--sunday-soft);color:var(--sunday-ink)} .chip.t{background:var(--tuesday-soft);color:var(--tuesday-ink)} .chip.roule{background:#f39c12;color:#fff}
   .eff{width:34px;font-size:.65rem;padding:1px 3px;margin-left:4px;border:1px solid #ccc;border-radius:4px;text-align:center;vertical-align:middle}
   .eff:focus{border-color:var(--accent);outline:none}
-  .wx{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:auto;font-size:.62rem;line-height:1.2;color:#3f5260;opacity:.92}
+  .wx{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:0;font-size:.62rem;line-height:1.2;color:#3f5260;opacity:.92}
   .wx .wemo{font-size:1.3rem;line-height:1}
   .wx .wtemp{font-weight:700;font-size:.72rem}
   .wx .wnd{display:inline-flex;align-items:center;gap:1px;font-size:.58rem;color:#63788a}
@@ -278,9 +297,7 @@
       <h2 id="moisLabel"></h2>
       <button class="btn navbtn" id="next" title="Mois suivant" aria-label="Mois suivant"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div class="dow"><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div></div>
     <div class="grid" id="grid"></div>
-    <div id="notePerp" style="display:none;font-size:.78rem;color:#7a5c1e;background:rgba(240,165,0,.14);border:1px solid rgba(240,165,0,.35);border-radius:10px;padding:7px 12px;margin:8px 0 4px"></div>
   </div>
 
   <div id="results"></div>
@@ -408,71 +425,170 @@ function peutReculer(){ return cur.getFullYear() > 2026 || cur.getMonth() > 9; }
 
 const todayISO = new Date().toLocaleDateString("sv-SE");
 
-function renderMonth(){
-  const y = cur.getFullYear(), m = cur.getMonth();
+// ---- Liste verticale : une ligne par journée, mois enchaînés au défilement ----
+let vus = [];                                   // mois rendus, dans l'ordre : ["2026-10","2026-11",…]
+let rafScroll = null;
+let MOIS_MAX = null;                            // borne haute du défilement (saison + 24 mois)
+function myDe(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+function decaleMois(my, n){ const p = my.split("-").map(Number); return myDe(new Date(p[0], p[1] - 1 + n, 1)); }
+function moisValide(my){
+  if (my < "2026-10") return false;
+  if (!MOIS_MAX) MOIS_MAX = SAISON_FIN ? decaleMois(SAISON_FIN.slice(0, 7), 24) : "2029-09";
+  return my <= MOIS_MAX;
+}
+function majEntete(){                           // libellé du mois, horaires, bandeau reconduction
+  const m = cur.getMonth(), y = cur.getFullYear();
   moisLabel.textContent = MOIS[m] + " " + y;
-  // borne : en octobre 2026, plus de mois précédent (masqué sans décentrer le libellé)
   const prevBtn = document.getElementById("prev");
   if (prevBtn) prevBtn.style.visibility = peutReculer() ? "visible" : "hidden";
-  // badge horaires selon la saison du mois affiché : hiver = oct→mars, été = avr→sept
   const hiver = [9, 10, 11, 0, 1, 2].includes(m);
   const hb = document.getElementById("horairesBadge");
   if (hb) hb.textContent = hiver
     ? "Horaires d'hiver : Dim 9 h · Mardi 13 h 30"
     : "Horaires d'été : Dim 8 h 30 · Mardi 14 h";
-  // bandeau "programme reconduit" si le mois déborde de la saison officielle
-  const note = document.getElementById("notePerp");
-  if (note) {
-    const finMois = `${y}-${String(m+1).padStart(2,"0")}-${String(new Date(y, m+1, 0).getDate()).padStart(2,"0")}`;
-    if (SAISON_FIN && finMois > SAISON_FIN) {
-      note.style.display = "";
-      note.textContent = "↻ Mois au-delà du programme officiel (jusqu'au " + frDate(SAISON_FIN) + ") : circuits de la saison 2026-2027 reconduits d'une année sur l'autre — indicatif, à confirmer par le club.";
-    } else note.style.display = "none";
+}
+function ligneJour(iso){                        // une ligne = une journée
+  const ev = byISO[iso];
+  const j = new Date(iso + "T12:00:00").getDay();
+  const dim = j === 0, mar = j === 2;
+  const row = document.createElement("div");
+  row.className = "drow" + (ev && ev.circuits.length ? " has " + (dim ? "dim" : "mar") : " off");
+  if (iso === todayISO) row.classList.add("today");
+  row.dataset.iso = iso;
+  const dd = document.createElement("div");
+  dd.className = "ddate";
+  dd.innerHTML = '<span class="dnum">' + Number(iso.slice(8, 10)) + '</span><span class="dwd">'
+    + ["dim.","lun.","mar.","mer.","jeu.","ven.","sam."][j] + "</span>";
+  row.appendChild(dd);
+  const main = document.createElement("div");
+  main.className = "dmain";
+  if (ev && ev.circuits.length) {
+    ev.circuits.forEach(c => {
+      const line = document.createElement("div");
+      line.className = "dcir";
+      const ch = document.createElement("span");
+      ch.className = "chip " + (dim ? "s" : "t") + (c.roule ? " roule" : "");
+      ch.textContent = `${c.km} km${c.reversed ? " ↺" : ""}`;
+      line.appendChild(ch);
+      // saisie du nombre de cyclistes présents à cette sortie
+      const key = tk(iso, c);
+      const eff = document.createElement("input");
+      eff.type = "number"; eff.min = "0"; eff.className = "eff";
+      eff.value = EFFETIFS[key] || "";
+      eff.title = "Nombre de cyclistes présents à cette sortie";
+      eff.onchange = () => { const v = parseInt(eff.value || "0", 10); if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} } };
+      line.appendChild(eff);
+      main.appendChild(line);
+    });
   }
-  grid.innerHTML = "";
-  const first = new Date(y, m, 1);
-  let start = (first.getDay() + 6) % 7;         // lundi = 0
-  const dim = new Date(y, m + 1, 0).getDate();
-  for (let i = 0; i < start; i++) { const e = document.createElement("div"); e.className = "cell empty"; grid.appendChild(e); }
+  // météo du jour : icône, température et vent à l'heure de départ (ou 9 h les autres jours)
+  if (METEO[iso]) main.appendChild(ligneMeteo(iso));
+  row.appendChild(main);
+  const chv = document.createElement("div");
+  chv.className = "dchev";
+  chv.textContent = "›";
+  row.appendChild(chv);
+  row.title = (ev && ev.circuits.length)
+    ? "Ouvrir la fiche du circuit"
+    : "Pas de circuit officiel ce jour — cliquez pour y importer un parcours roulé";
+  row.onclick = e => { if (e.target && e.target.tagName === "INPUT") return; openDay(iso); };
+  return row;
+}
+function blocMois(my){                          // un mois = un titre + 28 à 31 lignes
+  const p = my.split("-").map(Number);
+  const sec = document.createElement("section");
+  sec.className = "mblock";
+  sec.dataset.my = my;
+  const h = document.createElement("h3");
+  h.className = "mhead";
+  h.textContent = MOIS[p[1] - 1] + " " + p[0];
+  sec.appendChild(h);
+  if (SAISON_FIN && my > SAISON_FIN.slice(0, 7)) {           // mois reconduit : rappel local
+    const nt = document.createElement("div");
+    nt.className = "mnote";
+    nt.textContent = "↻ Mois au-delà du programme officiel (jusqu'au " + frDate(SAISON_FIN) + ") : circuits de la saison 2026-2027 reconduits — indicatif, à confirmer par le club.";
+    sec.appendChild(nt);
+  }
+  const dim = new Date(p[0], p[1], 0).getDate();
   for (let d = 1; d <= dim; d++) {
-    const iso = `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const ev = byISO[iso];
-    const cell = document.createElement("div");
-    if (ev && ev.circuits.length) cell.className = "cell " + (ev.weekday === "Dimanche" ? "dim" : "mar") + " has";
-    else cell.className = "cell";
-    if (iso === todayISO) cell.classList.add("today");
-    const num = document.createElement("div");
-    if (ev && ev.circuits.length) {
-      num.textContent = d;
-      num.onclick = () => openDay(iso);
-      cell.appendChild(num);
-      ev.circuits.forEach(c => {
-        const ch = document.createElement("span");
-        ch.className = "chip " + (ev.weekday === "Dimanche" ? "s" : "t") + (c.roule ? " roule" : "");
-        ch.textContent = `${c.km} km${c.reversed ? " ↺" : ""}`;
-        ch.onclick = () => openDay(iso);
-        cell.appendChild(ch);
-        // saisie du nombre de cyclistes présents à cette sortie
-        const key = tk(iso, c);
-        const eff = document.createElement("input");
-        eff.type = "number"; eff.min = "0"; eff.className = "eff";
-        eff.value = EFFETIFS[key] || "";
-        eff.title = "Nombre de cyclistes présents à cette sortie";
-        eff.onchange = () => { const v = parseInt(eff.value || "0", 10); if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} } };
-        cell.appendChild(eff);
-      });
-    } else {
-      num.textContent = d;
-      num.style.cursor = "pointer";                 // jour sans circuit : ouvrable pour y importer un GPX roulé
-      num.title = "Pas de circuit officiel ce jour — cliquez pour y importer un parcours roulé";
-      num.onclick = () => openDay(iso);
-      cell.appendChild(num);
-    }
-    // météo du jour : icône, température et vent à l'heure de départ (ou 9 h les autres jours)
-    if (METEO[iso]) cell.appendChild(ligneMeteo(iso));
-    grid.appendChild(cell);
+    sec.appendChild(ligneJour(`${p[0]}-${String(p[1]).padStart(2,"0")}-${String(d).padStart(2,"0")}`));
+  }
+  return sec;
+}
+function renderMonth(){                         // reconstruit la fenêtre rendue sans perdre le défilement
+  majEntete();
+  if (!vus.length || !vus.includes(myDe(cur))) {
+    vus = [decaleMois(myDe(cur), -1), myDe(cur), decaleMois(myDe(cur), 1)].filter(moisValide);
+  }
+  const y0 = window.scrollY;
+  grid.innerHTML = "";
+  vus.forEach(my => grid.appendChild(blocMois(my)));
+  window.scrollTo(0, y0);
+}
+function ajouterMois(sens){                     // +1 : mois suivant en bas ; -1 : mois précédent en haut
+  const ref = sens > 0 ? vus[vus.length - 1] : vus[0];
+  const my = decaleMois(ref, sens);
+  if (!moisValide(my) || vus.includes(my)) return false;
+  if (sens > 0) {
+    vus.push(my);
+    grid.appendChild(blocMois(my));
+  } else {
+    const h0 = document.documentElement.scrollHeight;
+    vus.unshift(my);
+    grid.insertBefore(blocMois(my), grid.firstChild);
+    window.scrollBy(0, document.documentElement.scrollHeight - h0);   // le contenu visible ne bouge pas
+  }
+  return true;
+}
+function decalageHaut(){                        // hauteur des barres fixes
+  const hdr = document.querySelector("header");
+  const bar = document.querySelector(".topbar");
+  return (hdr ? hdr.offsetHeight : 0) + (bar ? bar.offsetHeight : 0) + 6;
+}
+function demanderScroll(el){                    // place le haut d'un bloc juste sous les barres fixes
+  requestAnimationFrame(() => {
+    const cible = () => el.getBoundingClientRect().top + window.scrollY - decalageHaut();
+    window.scrollTo({ top: Math.max(0, cible()), behavior: "smooth" });
+    setTimeout(() => {                          // l'en-tête se replie pendant le défilement : on ajuste
+      const d = el.getBoundingClientRect().top - decalageHaut();
+      if (Math.abs(d) > 2) window.scrollBy(0, d);
+    }, 420);
+  });
+}
+function allerMois(my){                         // rend le mois visible puis s'y positionne
+  if (!moisValide(my)) return;
+  while (vus.length && vus[0] > my) ajouterMois(-1);
+  while (vus.length && vus[vus.length - 1] < my) ajouterMois(1);
+  const p = my.split("-").map(Number);
+  cur = new Date(p[0], p[1] - 1, 1);
+  majEntete();
+  const sec = grid.querySelector('section[data-my="' + my + '"]');
+  if (sec) demanderScroll(sec);
+}
+function majMoisVisible(){                      // le libellé suit le mois qui passe sous les barres
+  const secs = grid.querySelectorAll("section.mblock");
+  if (!secs.length) return;
+  const lim = decalageHaut() + 4;
+  let visible = secs[0];
+  for (const s of secs) { if (s.getBoundingClientRect().top <= lim) visible = s; else break; }
+  const my = visible.dataset.my;
+  if (my && my !== myDe(cur)) {
+    const p = my.split("-").map(Number);
+    cur = new Date(p[0], p[1] - 1, 1);
+    majEntete();
   }
 }
+window.addEventListener("scroll", () => {
+  if (calView.style.display === "none" || rafScroll) return;
+  rafScroll = requestAnimationFrame(() => {
+    rafScroll = null;
+    if (calView.style.display === "none") return;
+    majMoisVisible();
+    const y = window.scrollY, h = document.documentElement.scrollHeight, vh = window.innerHeight;
+    if (y + vh > h - 350) ajouterMois(1);       // bas de page : mois suivant
+    if (y < 250) ajouterMois(-1);               // haut de page : mois précédent
+  });
+}, { passive: true });
 
 // ---- Météo : icônes WMO, heure de départ, affichage dans la cellule ----
 function heureRef(iso){                       // heure pleine retenue pour la météo du jour
@@ -1588,8 +1704,8 @@ document.getElementById("circView").addEventListener("click", e => {
   state.map.panTo([geo[0], geo[1]]);                         // centrage sur la commune
 });
 
-document.getElementById("prev").onclick = () => { if (peutReculer()) { cur.setMonth(cur.getMonth() - 1); renderMonth(); } };
-document.getElementById("next").onclick = () => { cur.setMonth(cur.getMonth() + 1); renderMonth(); };
+document.getElementById("prev").onclick = () => { if (peutReculer()) allerMois(decaleMois(myDe(cur), -1)); };
+document.getElementById("next").onclick = () => allerMois(decaleMois(myDe(cur), 1));
 document.getElementById("todayBtn").onclick = () => {
   const lv = document.getElementById("listView");
   if (lv.style.display === "block") {          // mode Liste / Imprimer
@@ -1618,7 +1734,9 @@ document.getElementById("todayBtn").onclick = () => {
   if (t >= new Date(2026,9,4)) { cur = new Date(t.getFullYear(), t.getMonth(), 1); }   // au-delà : mois courant (programme reconduit)
   else cur = new Date(2026,9,1);
   renderMonth();
-  window.scrollTo({top:0, behavior:"smooth"});
+  const jour = grid.querySelector('.drow[data-iso="' + todayISO + '"]');   // se cale sur la ligne du jour
+  if (jour) demanderScroll(jour);
+  else window.scrollTo({top:0, behavior:"smooth"});
 };
 
 // balayage horizontal du doigt sur le calendrier → mois précédent / suivant (mobile)
@@ -1637,16 +1755,9 @@ document.getElementById("todayBtn").onclick = () => {
     const dt = Date.now() - t0;
     x0 = null;
     // balayage franc, surtout horizontal, bref : sinon c'est un défilement vertical
-    if (dt < 800 && Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) {
-      const sens = dx < 0 ? -1 : 1;   // -1 = glissé vers la gauche → mois suivant ; +1 = vers la droite → mois précédent
-      zone.style.transition = "transform 0.28s ease";
-      zone.style.transform = `translateX(${sens * 90}%)`;   // le mois en cours glisse hors de l'écran
-      setTimeout(() => {
-        if (sens < 0) document.getElementById("next").click();
-        else if (peutReculer()) document.getElementById("prev").click();
-        zone.style.transition = "none";
-        zone.style.transform = "translateX(0)";
-      }, 280);
+    if (dt < 800 && Math.abs(dx) > 70 && Math.abs(dx) > 1.8 * Math.abs(dy)) {
+      if (dx < 0) document.getElementById("next").click();              // glissé vers la gauche → mois suivant
+      else if (peutReculer()) document.getElementById("prev").click();  // vers la droite → mois précédent (borne : oct. 2026)
     }
   }, { passive: true });
 })();
@@ -2079,7 +2190,7 @@ document.getElementById("jsonEffImport").addEventListener("change", e => {
 // ---- Aide : panneau explicatif des fonctionnalités ----
 const helpPanel = document.getElementById("helpPanel");
 const helpItems = [
-  { t: "Calendrier", d: "Affiche les sorties du club mois par mois. Les jours avec un circuit montrent une puce avec le kilométrage (verte dimanche, bleue mardi, orangée si le tracé a été remplacé par un parcours roulé importé). Les jours sans circuit restent cliquables pour y importer un GPX roulé." },
+  { t: "Calendrier", d: "Une ligne par journée, les unes sous les autres : faites défiler de haut en bas (et inversement). En arrivant en bas, le mois suivant s'ajoute automatiquement ; en remontant, le mois précédent. Les lignes des dimanches (vert) et mardis (bleu) portent le kilométrage ; une puce orangée signale un tracé remplacé par un parcours roulé importé. Les autres jours restent cliquables pour y importer un GPX." },
   { t: "Fiche circuit", d: "Cliquez sur une puce km pour ouvrir la fiche d'un circuit : nom, communes traversées, boutons 🗺️ Tracé GPX (carte Leaflet), 📍 Position, 🧭 Roadbook (tableau km/cap/altitude), et ⬇ Télécharger GPX." },
   { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. ♻️ Tracé officiel restaure le GPX du club." },
   { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Permet de sauvegarder tous les imports dans un fichier JSON (parcours_roules_vscb.json) et d'en recharger un fichier (fusion). Chaque parcours peut être retiré individuellement." },
@@ -2087,7 +2198,7 @@ const helpItems = [
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
   { t: "🔍 Recherche commune", d: "Tapez le nom d'une commune (ex. Coulon, Chizé…) dans la barre de recherche pour trouver tous les circuits qui la traversent. Les résultats sont cliquables pour ouvrir la fiche correspondante." },
-  { t: "📅 Aujourd'hui", d: "Ramène le calendrier au mois en cours et met en évidence le jour actuel." },
+  { t: "📅 Aujourd'hui", d: "Fait défiler la liste jusqu'à la ligne du jour actuel et la met en évidence." },
   { t: "Hors-ligne", d: "Une fois les tracés téléchargés au moins une fois, une copie est conservée dans le navigateur (IndexedDB) : le calendrier et les circuits fonctionnent sans connexion. Une copie de secours des imports et effectifs peut aussi être exportée en JSON." }
 ];
 function majHelpListe(){                    // remplit le panneau d'aide
@@ -2246,7 +2357,10 @@ async function chargerMeteo(){
         const v = d.jours[iso];
         if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && v && typeof v.t === "number") { METEO[iso] = v; n++; }
       }
-      if (n) { try { localStorage.setItem("vscb_meteo", JSON.stringify(METEO)); } catch (e) {} }
+      if (n) {
+        try { localStorage.setItem("vscb_meteo", JSON.stringify(METEO)); } catch (e) {}
+        renderMonth();                        // les lignes déjà affichées reçoivent leur météo
+      }
       break;
     } catch (e) {}
   }
