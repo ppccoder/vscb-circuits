@@ -561,19 +561,47 @@ function ajouterMois(sens){                     // +1 : mois suivant en bas ; -1
   }
   return true;
 }
-function decalageHaut(){                        // hauteur des barres fixes
-  const hdr = document.querySelector("header");
+function basBarres(){                           // bas réel, à l'écran, de la barre fixe du haut
   const bar = document.querySelector(".topbar");
-  return (hdr ? hdr.offsetHeight : 0) + (bar ? bar.offsetHeight : 0) + 6;
+  if (bar) return Math.max(0, bar.getBoundingClientRect().bottom);
+  const hdr = document.querySelector("header");
+  return hdr ? Math.max(0, hdr.getBoundingClientRect().bottom) : 0;
 }
-function demanderScroll(el){                    // place le haut d'un bloc juste sous les barres fixes
+function demanderScroll(el, marge){             // place le haut d'un bloc juste sous les barres fixes
+  marge = marge == null ? 6 : marge;
   requestAnimationFrame(() => {
-    const cible = () => el.getBoundingClientRect().top + window.scrollY - decalageHaut();
-    window.scrollTo({ top: Math.max(0, cible()), behavior: "smooth" });
-    setTimeout(() => {                          // l'en-tête se replie pendant le défilement : on ajuste
-      const d = el.getBoundingClientRect().top - decalageHaut();
+    const cible = Math.max(0, el.getBoundingClientRect().top + window.scrollY - basBarres() - marge);
+    window.scrollTo({ top: cible, behavior: "smooth" });
+    // Sur mobile, le défilement doux et le repli de l'en-tête durent bien plus longtemps :
+    // on attend que la position se stabilise, puis on recale sur les barres réelles.
+    const recaler = () => {
+      if (annule) return;
+      const d = el.getBoundingClientRect().top - basBarres() - marge;
       if (Math.abs(d) > 2) window.scrollBy(0, d);
-    }, 420);
+    };
+    let annule = false;                         // l'utilisateur reprend la main : on ne recale plus
+    const stop = () => { annule = true; };
+    const fin = () => {
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchmove", stop);
+    };
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchmove", stop, { passive: true });
+    let dernier = window.scrollY, stable = 0, essais = 0;
+    const veille = () => {
+      if (annule) { fin(); return; }
+      const y = window.scrollY;
+      if (Math.abs(y - dernier) < 1) stable++; else stable = 0;
+      dernier = y;
+      if (stable >= 3 || ++essais > 40) {       // défilement terminé (≈ 240 ms sans bouger)
+        fin();
+        recaler();
+        setTimeout(recaler, 350);               // filet : fin du repli de l'en-tête / barre d'adresse
+        return;
+      }
+      setTimeout(veille, 80);
+    };
+    setTimeout(veille, 120);
   });
 }
 function allerMois(my){                         // rend le mois visible puis s'y positionne
@@ -589,7 +617,7 @@ function allerMois(my){                         // rend le mois visible puis s'y
 function majMoisVisible(){                      // le libellé suit le mois qui passe sous les barres
   const secs = grid.querySelectorAll("section.mblock");
   if (!secs.length) return;
-  const lim = decalageHaut() + 4;
+  const lim = basBarres() + 4;
   let visible = secs[0];
   for (const s of secs) { if (s.getBoundingClientRect().top <= lim) visible = s; else break; }
   const my = visible.dataset.my;
