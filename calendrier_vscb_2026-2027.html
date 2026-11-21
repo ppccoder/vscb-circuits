@@ -83,9 +83,9 @@
   .eff:focus{border-color:var(--accent);outline:none}
   .wx{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-top:0;font-size:.62rem;line-height:1.2;color:#3f5260;opacity:.92}
   .wx .wemo{font-size:1.3rem;line-height:1}
-  .wx .wtemp{font-weight:700;font-size:.72rem}
-  .wx .wnd{display:inline-flex;align-items:center;gap:1px;font-size:.58rem;color:#63788a}
-  .wx .wfl{display:inline-block;font-size:.62rem;line-height:1}
+  .wx .wtemp{font-weight:700;font-size:.72rem;line-height:1}
+  .wx .wnd{display:inline-flex;align-items:center;gap:2px;font-size:.72rem;line-height:1;color:#63788a}
+  .wx .wfl{display:inline-block;font-size:.72rem;line-height:1}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
   .stats{margin:10px 0 30px;color:var(--muted);font-size:.8rem;text-align:center}
@@ -675,7 +675,7 @@ function ligneMeteo(iso){                     // petite ligne météo ajoutée e
   fl.style.transform = "rotate(" + (((w.d || 0) + 180) % 360) + "deg)";   // flèche = sens où va le vent
   fl.textContent = "↑";
   wd.appendChild(fl);
-  wd.appendChild(document.createTextNode(w.w));
+  wd.appendChild(document.createTextNode(w.w + " km/h"));
   el.appendChild(wd);
   return el;
 }
