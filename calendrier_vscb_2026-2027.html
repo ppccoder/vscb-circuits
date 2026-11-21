@@ -137,9 +137,9 @@
   /* Vue liste */
   #listView{display:none}  .lmonth{margin:18px 0 6px}
   /* en mode liste : la ligne recherche + Liste/Imprimer + Aujourd'hui disparaît (seuls restent Imprimer/PDF et Retour) */
-  .toolbar.mode-liste #searchBtn, .toolbar.mode-liste #listBtn, .toolbar.mode-liste #todayBtn, .toolbar.mode-liste #ventBtn, .toolbar.mode-liste #parcBtn, .toolbar.mode-liste #helpBtn{display:none}
+  .toolbar.mode-liste #searchBtn, .toolbar.mode-liste #listBtn, .toolbar.mode-liste #todayBtn, .toolbar.mode-liste #ventBtn, .toolbar.mode-liste #parcBtn, .toolbar.mode-liste #helpBtn, .toolbar.mode-liste #effBtn{display:none}
   /* Vue circuit plein écran (façon vue liste) : barre dédiée + fiche intégrée à la page */
-  .toolbar.mode-circ #searchBtn, .toolbar.mode-circ #listBtn, .toolbar.mode-circ #todayBtn, .toolbar.mode-circ #ventBtn, .toolbar.mode-circ #parcBtn, .toolbar.mode-circ #helpBtn{display:none}
+  .toolbar.mode-circ #searchBtn, .toolbar.mode-circ #listBtn, .toolbar.mode-circ #todayBtn, .toolbar.mode-circ #ventBtn, .toolbar.mode-circ #parcBtn, .toolbar.mode-circ #helpBtn, .toolbar.mode-circ #effBtn{display:none}
   #circHead{display:none;max-width:960px;margin:2px auto 10px}
   #circHead h2{margin:0 0 2px;font-size:1.15rem}
   #circHead .date-sub{color:var(--muted);font-size:.85rem}
@@ -150,7 +150,7 @@
   #circActions{display:none;gap:6px;flex-wrap:wrap;align-items:center}
   #circActions .csel:first-child{margin-left:8px}
   /* Vue roadbook intégrée (façon vue circuit) : barre dédiée + contenu imprimable dans la page */
-  .toolbar.mode-rb #searchBtn, .toolbar.mode-rb #listBtn, .toolbar.mode-rb #todayBtn, .toolbar.mode-rb #ventBtn, .toolbar.mode-rb #circActions, .toolbar.mode-rb #parcBtn, .toolbar.mode-rb #helpBtn{display:none}
+  .toolbar.mode-rb #searchBtn, .toolbar.mode-rb #listBtn, .toolbar.mode-rb #todayBtn, .toolbar.mode-rb #ventBtn, .toolbar.mode-rb #circActions, .toolbar.mode-rb #parcBtn, .toolbar.mode-rb #helpBtn, .toolbar.mode-rb #effBtn{display:none}
   #rbActions{display:none;gap:10px}
   #rbView{display:none;max-width:210mm;margin:6px auto 24px;background:#fff;border:1px solid #e3e8ee;border-radius:10px;padding:16px 18px;box-shadow:0 4px 16px rgba(20,30,45,.10)}
   @media print{#rbView{display:block !important;max-width:none;border:none;box-shadow:none;margin:0;padding:0}}
@@ -2487,6 +2487,18 @@ async function chargerMeteo(){
   if (n) renderMonth();
 }
 chargerMeteo();
+
+// 👥 Effectifs : bouton réservé à l'écran du calendrier (masqué sur les autres pages :
+// recherche de commune, liste/imprimer, tracé d'un circuit, roadbook)
+const effBtn = document.getElementById("effBtn");
+function majVueEff(){
+  const cal = document.getElementById("calView");
+  effBtn.style.display = (cal && cal.style.display !== "none") ? "" : "none";
+}
+new MutationObserver(majVueEff).observe(document.getElementById("calView"), {
+  attributes: true, attributeFilter: ["style"]
+});
+majVueEff();
 
 // flèche ‹ du téléphone/navigateur : revient à l'écran précédent du programme ;
 // au niveau du calendrier (base), ‹ quitte normalement le site
