@@ -334,7 +334,7 @@
   <div id="effPanel" role="dialog" aria-label="Effectifs des sorties">
     <button class="vfermer" id="effClose" title="Fermer">✕</button>
     <h3>👥 Effectifs par sortie</h3>
-    <p class="note">Nombre de cyclistes présents à chaque sortie (mémorisé sur cet appareil). « Sauvegarder » exporte tous les effectifs dans un fichier JSON ; « Charger » restaure depuis un fichier JSON (fusion avec les vôtres).</p>
+    <p class="note">Nombre de cyclistes présents à chaque sortie (mémorisé sur cet appareil) ; les sorties à 0 ne sont pas listées. « Sauvegarder » exporte tous les effectifs dans un fichier JSON ; « Charger » restaure depuis un fichier JSON (fusion avec les vôtres).</p>
     <div id="effListe"></div>
     <div class="parcBtns">
       <button class="btn" id="effExport" title="Enregistre tous les effectifs dans un fichier JSON">⬇ Sauvegarder JSON</button>
@@ -2387,7 +2387,7 @@ parcoursPret = chargeParcoursDistant();     // fichier publié sur GitHub : rech
 const effPanel = document.getElementById("effPanel");
 function majEffListe(){                    // reconstruit la liste des effectifs saisis
   const ul = document.getElementById("effListe"); if (!ul) return;
-  const keys = Object.keys(EFFETIFS).sort();
+  const keys = Object.keys(EFFETIFS).filter(k => EFFETIFS[k] > 0).sort();   // les sorties à 0 ne sont pas affichées
   if (!keys.length) { ul.innerHTML = '<p class="note" style="margin:6px 0">Aucun effectif saisi pour l\'instant.</p>'; return; }
   ul.innerHTML = keys.map(key => {
     const [iso, label] = key.split("#");
@@ -2396,7 +2396,11 @@ function majEffListe(){                    // reconstruit la liste des effectifs
   }).join("");
   ul.querySelectorAll("input.eff").forEach(input => input.onchange = function(){
     const key = this.dataset.key, v = parseInt(this.value || "0", 10);
-    if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} }
+    if (v >= 0) {
+      EFFETIFS[key] = v;
+      try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
+      if (v === 0) majEffListe();          // passé à 0 : la ligne disparaît de la liste
+    }
   });
 }
 function exportEffectifs(){                // ⬇ : tous les effectifs dans un fichier JSON
@@ -2442,7 +2446,7 @@ const helpItems = [
   { t: "Fiche circuit", d: "Cliquez sur une puce km pour ouvrir la fiche d'un circuit : nom, communes traversées, boutons 🗺️ Tracé GPX (carte Leaflet), 📍 Position, 🧭 Roadbook (tableau km/cap/altitude), et ⬇ Télécharger GPX." },
   { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. Les communes sont déduites des limites communales : dans l'ordre du parcours, et une même commune réapparaît si vous y repassez (aller-retour). L'orientation 🧭 est recalculée selon l'axe de la plus grande diagonale du parcours (du premier au second point le plus éloigné, dans le sens du tracé). ♻️ Tracé officiel restaure le GPX et l'orientation du club." },
   { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Ceux publiés dans parcours_roules_vscb.json sur GitHub sont rechargés automatiquement à chaque démarrage (un import fait sur l'appareil reste prioritaire s'il est plus récent, un parcours retiré ne revient pas). Permet aussi de sauvegarder tous les imports dans ce fichier JSON et d'en recharger un (fusion). Chaque parcours peut être retiré individuellement." },
-  { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
+  { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Le panneau 👥 Effectifs par sortie ne liste que les sorties avec au moins 1 cycliste (une valeur remise à 0 fait disparaître la ligne). Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
   { t: "🔍 Recherche commune", d: "Cliquez sur le bouton 🔍 Commune : une fenêtre s'ouvre. Tapez le nom d'une commune (ex. Coulon, Chizé…) puis ✅ OK (ou la touche Entrée) pour afficher tous les circuits qui la traversent ; ✖ Annuler ferme la fenêtre. Si le nom n'est pas trouvé, un message d'anomalie le signale et la fenêtre reste ouverte pour corriger la saisie. La liste s'affiche sous la barre de boutons ; le bouton ↩ Calendrier complet (toujours visible) referme les résultats et revient au calendrier. Chaque résultat est cliquable pour ouvrir la fiche correspondante." },
