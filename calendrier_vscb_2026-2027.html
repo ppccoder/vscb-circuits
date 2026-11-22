@@ -1563,8 +1563,11 @@ function toggleMap(btn, iso, i){
         if (!sel.mk.isPopupOpen()) { sel.mk.openPopup(); autoPop = sel.mk; }
       }
     }
+    const dSeg = dist[j] - dist[j - 1];                          // pente sur le segment du tracé où se trouve le curseur
+    const pente = dSeg > 0 ? ((pts[j][2] - pts[j - 1][2]) / (dSeg * 1000) * 100) : 0;
+    const penteTxt = pente >= 0 ? "Pente : <b>+" + pente.toFixed(1) + "%</b>" : "Pente : <b>" + pente.toFixed(1) + "%</b>";
     const info = profBox.querySelector(".profilinfo");
-    if (info) info.innerHTML = "Altitude : <b>" + Math.round(ele) + " m</b> &nbsp;&nbsp; Distance : <b>" + d.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " km</b> &nbsp;&nbsp; Restant : <b>" + (dmax - d).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " km</b> jusqu'à Beauvoir" + (stopSel ? " &nbsp;&nbsp; 🏘️ <b>" + stopSel.num + ". " + stopSel.nom + "</b>" : "");
+    if (info) info.innerHTML = "Altitude : <b>" + Math.round(ele) + " m</b> &nbsp;&nbsp; Distance : <b>" + d.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " km</b> &nbsp;&nbsp; Restant : <b>" + (dmax - d).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " km</b> jusqu'à Beauvoir &nbsp;&nbsp; " + penteTxt + (stopSel ? " &nbsp;&nbsp; 🏘️ <b>" + stopSel.num + ". " + stopSel.nom + "</b>" : "");
     if (!ptCarte) ptCarte = L.circleMarker([lat, lon], { radius: 7, color: "#fff", weight: 2, fillColor: "#1a6fe8", fillOpacity: .95 }).addTo(map);
     else ptCarte.setLatLng([lat, lon]);
     if (ptCarte.bringToFront) ptCarte.bringToFront();
