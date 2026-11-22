@@ -492,7 +492,7 @@ function ligneJour(iso){                        // une ligne = une journée
       eff.type = "number"; eff.min = "0"; eff.className = "eff";
       eff.value = EFFETIFS[key] || "";
       eff.title = "Nombre de cyclistes présents à cette sortie";
-      eff.onchange = () => { const v = parseInt(eff.value || "0", 10); if (v >= 0) { EFFETIFS[key] = v; try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} } };
+      eff.onchange = () => { const v = parseInt(eff.value || "0", 10); if (v >= 1) EFFETIFS[key] = v; else { delete EFFETIFS[key]; eff.value = ""; } try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {} };
       line.appendChild(eff);
       main.appendChild(line);
       if (c.route) {                            // communes traversées, comme dans la vue liste
@@ -2396,15 +2396,14 @@ function majEffListe(){                    // reconstruit la liste des effectifs
   }).join("");
   ul.querySelectorAll("input.eff").forEach(input => input.onchange = function(){
     const key = this.dataset.key, v = parseInt(this.value || "0", 10);
-    if (v >= 0) {
-      EFFETIFS[key] = v;
-      try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
-      if (v === 0) majEffListe();          // passé à 0 : la ligne disparaît de la liste
-    }
+    if (v >= 1) EFFETIFS[key] = v;
+    else delete EFFETIFS[key];             // 0 ou vide : la sortie n'est plus comptée
+    try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
+    if (v < 1) majEffListe();               // la ligne disparaît de la liste
   });
 }
 function exportEffectifs(){                // ⬇ : tous les effectifs dans un fichier JSON
-  const keys = Object.keys(EFFETIFS);
+  const keys = Object.keys(EFFETIFS).filter(k => EFFETIFS[k] > 0);
   if (!keys.length) { alert("Aucun effectif saisi à exporter."); return; }
   const obj = { appli: "Calendrier VSCB", type: "effectifs", version: 1,
                 date: new Date().toISOString().slice(0, 10), effectifs: {} };
@@ -2417,7 +2416,7 @@ function chargeEffectifsJson(texte){       // ⬆ : fusionne un fichier JSON d'e
   let n = 0;
   for (const key in e) {
     const v = e[key];
-    if (typeof v === "number" && v >= 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) { EFFETIFS[key] = v; n++; }
+    if (typeof v === "number" && v > 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) { EFFETIFS[key] = v; n++; }
   }
   if (!n) { alert("Aucun effectif valide trouvé dans ce fichier."); return; }
   try { localStorage.setItem("vscb_effectifs", JSON.stringify(EFFETIFS)); } catch (e) {}
@@ -2559,7 +2558,7 @@ async function chargerEffectifs(){
   let n = 0, maj = false;
   for (const key in data.effectifs) {
     const v = data.effectifs[key];
-    if (typeof v === "number" && v >= 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) {
+    if (typeof v === "number" && v > 0 && /^\d{4}-\d{2}-\d{2}#.+$/.test(key)) {
       if (EFFETIFS[key] !== v) { EFFETIFS[key] = v; maj = true; }
       n++;
     }
