@@ -1902,7 +1902,7 @@ document.getElementById("circView").addEventListener("click", e => {
   if (holder.style.display !== "block") {   // afficher le tracé s'il est masqué
     holder._vscb = null;
     const btn = [...cir.querySelectorAll("button")].find(b => b.textContent.includes("Tracé GPX"));
-    if (btn) btn.click();
+    if (btn) { btn.click(); btn.textContent = "✖ Masquer le tracé"; }   // le texte du bouton suit l'ouverture de la carte
   }
   const state = holder._vscb;
   if (!state) return;
