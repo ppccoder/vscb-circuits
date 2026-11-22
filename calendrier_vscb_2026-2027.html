@@ -323,7 +323,7 @@
   <div id="parcPanel" role="dialog" aria-label="Mes parcours roulés importés">
     <button class="vfermer" id="parcClose" title="Fermer">✕</button>
     <h3>💾 Mes parcours roulés</h3>
-    <p class="note">Parcours GPX importés sur cet appareil (mémorisés par le navigateur). « Sauvegarder » les enregistre dans un fichier JSON à conserver ou copier sur un autre appareil ; « Charger » les restaure depuis ce fichier (fusion, sans écraser les vôtres).</p>
+    <p class="note">Parcours GPX importés sur cet appareil (mémorisés par le navigateur). Les parcours publiés dans <b>parcours_roules_vscb.json</b> sur GitHub sont rechargés automatiquement à chaque démarrage. « Sauvegarder » les enregistre dans ce fichier JSON à conserver ou copier sur un autre appareil ; « Charger » les restaure depuis ce fichier (fusion, sans écraser les vôtres).</p>
     <div id="parcListe"></div>
     <div class="parcBtns">
       <button class="btn" id="parcExport" title="Enregistre tous vos parcours importés dans un fichier JSON">⬇ Sauvegarder JSON</button>
@@ -480,7 +480,7 @@ function ligneJour(iso){                        // une ligne = une journée
       const line = document.createElement("div");
       line.className = "dcir";
       line.innerHTML =
-        '<span class="clab">Circuit ' + c.label + '</span>' +
+        '<span class="clab">' + (c.roule ? "🚴 Roulé" : "Circuit " + c.label) + '</span>' +
         '<span class="chip ' + (dim ? "s" : "t") + (c.roule ? " roule" : "") + '">'
           + c.km + ' km' + (c.reversed ? " ↺" : "") + '</span>' +
         (t && t.asc ? '<span class="casc">D+ ' + t.asc + ' m</span>' : '') +
@@ -966,6 +966,16 @@ async function downloadGpx(iso, i){
 //      téléphone) : remplace le tracé officiel du circuit sur cet appareil,
 //      mémorisé entre les visites et réversible (♻️ Tracé officiel) ----
 const IMPORTS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_gpx_roule") || "{}") || {}; } catch (e) { return {}; } })();
+const SUPPRIMES = (function(){ try { return JSON.parse(localStorage.getItem("vscb_gpx_suppr") || "{}") || {}; } catch (e) { return {}; } })();   // { "iso#label": date de retrait } : empêche un parcours retiré de revenir depuis le fichier GitHub
+function noteSuppression(key){            // mémorise le retrait d'un parcours (pour ne pas le recharger au démarrage)
+  SUPPRIMES[key] = Date.now();
+  try { localStorage.setItem("vscb_gpx_suppr", JSON.stringify(SUPPRIMES)); } catch (e) {}
+}
+function oublieSuppression(key){
+  if (SUPPRIMES[key] == null) return;
+  delete SUPPRIMES[key];
+  try { localStorage.setItem("vscb_gpx_suppr", JSON.stringify(SUPPRIMES)); } catch (e) {}
+}
 const EFFETIFS = (function(){ try { return JSON.parse(localStorage.getItem("vscb_effectifs") || "{}") || {}; } catch (e) { return {}; } })();   // { "iso#label": nb cyclistes }
 const METEO = (function(){ try { return JSON.parse(localStorage.getItem("vscb_meteo") || "{}") || {}; } catch (e) { return {}; } })();   // { "AAAA-MM-JJ": {c,t,w,d,tn,tx,p} }
 const METEO_LIEU = { nom: "Beauvoir-sur-Niort", lat: 46.18198, lon: -0.47396 };
@@ -1305,7 +1315,8 @@ function appliqueImport(key, d){         // remplace tracé + km + profil + comm
       c.route = det.map(x => x.s).join(" – ");
     }
   }
-  IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: c ? c.label : "R" };
+  IMPORTS[key] = { pts: ptsS, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: c ? c.label : "R", t: Number(d.t) || Date.now() };
+  if (!d.t) oublieSuppression(key);        // import volontaire : le parcours redevient actif
   return true;
 }
 
@@ -1345,6 +1356,7 @@ function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du c
       delete TRACKS[key]; delete FULLPTS[key];
     }
     delete IMPORTS[key];
+    noteSuppression(key);
     try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
     renderMonth();                       // la cellule redevient vide, pas de “— km”
     alert("Parcours roulé retiré.");
@@ -1357,6 +1369,7 @@ function annuleImport(iso, i){           // ♻️ : retour au GPX officiel du c
   if (c && t._officiel.ckm != null) c.km = t._officiel.ckm;
   if (c && t._officiel.stops) { c.stops = t._officiel.stops; c.geo = t._officiel.geo; c.route = t._officiel.route; }
   delete IMPORTS[key];
+  noteSuppression(key);                    // le parcours ne sera pas rechargé depuis le fichier GitHub
   try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
   majApresImport(iso, i);
   alert("♻️ Tracé officiel du club restauré.");
@@ -2264,7 +2277,7 @@ function majParcListe(){                    // reconstruit la liste des imports 
   if (!keys.length) { ul.innerHTML = '<p class="note" style="margin:6px 0">Aucun parcours importé sur cet appareil.</p>'; return; }
   ul.innerHTML = keys.sort().map(key => {
     const d = IMPORTS[key];
-    return `<div class="parcRow"><div><b>${frDate(d.iso)}</b> — circuit ${esc(d.lab || "R")}<br>` +
+    return `<div class="parcRow"><div><b>${frDate(d.iso)}</b> — ${d.lab === "R" ? "parcours roulé" : "circuit " + esc(d.lab || "R")}<br>` +
       `<span class="note">${(d.km || 0).toFixed(1).replace(".", ",")} km · ${(d.pts || []).length} pts${d.nom ? " · " + esc(d.nom) : ""}</span></div>` +
       `<button class="btn parcRetirer" data-key="${esc(key)}" title="Retire ce parcours (mémorisation + fiche)">♻️</button></div>`;
   }).join("");
@@ -2283,6 +2296,7 @@ function majParcListe(){                    // reconstruit la liste des imports 
         if (card) openDay(d.iso, true);
       }
       delete IMPORTS[key];
+      noteSuppression(key);
       try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {}
       renderMonth(); majParcListe();
     }
@@ -2307,8 +2321,34 @@ function sauvegardeParcours(){              // ⬇ : tous les imports dans un fi
   if (!keys.length) { alert("Aucun parcours importé à sauvegarder."); return; }
   const obj = { appli: "Calendrier VSCB", type: "parcours_roules", version: 1,
                 date: new Date().toISOString().slice(0, 10), parcours: {} };
-  keys.forEach(k => { obj.parcours[k] = IMPORTS[k]; });
+  const t = Date.now();                     // version du fichier : sert à arbitrer avec les copies de chaque appareil
+  keys.forEach(k => { obj.parcours[k] = Object.assign({ t }, IMPORTS[k]); });
   exportTexte("parcours_roules_vscb.json", JSON.stringify(obj));
+}
+function fusionneParcours(obj){             // intègre un fichier de parcours (sans écraser un import plus récent)
+  const p = obj && (obj.parcours || obj);   // accepte la sauvegarde complète ou un objet brut
+  if (!p) return 0;
+  let n = 0;
+  for (const key in p) {
+    const d = p[key];
+    if (!d || typeof d.iso !== "string" || !Array.isArray(d.pts) || d.pts.length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(d.iso)) continue;
+    const t = Number(d.t) || 0;
+    if ((SUPPRIMES[key] || 0) > t) continue;          // retiré volontairement après la publication du fichier
+    const loc = IMPORTS[key];
+    if (loc && (Number(loc.t) || 0) > t) continue;    // import plus récent sur cet appareil : on le garde
+    IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: d.lab || "R", t };
+    n++;
+  }
+  if (n) { try { localStorage.setItem("vscb_gpx_roule", JSON.stringify(IMPORTS)); } catch (e) {} }
+  return n;
+}
+let parcoursPret = null;                    // chargement du fichier GitHub, attendu avant de restaurer les imports
+async function chargeParcoursDistant(){     // parcours_roules_vscb.json publié sur GitHub : rechargé à chaque démarrage
+  let data = null;
+  for (const u of ["parcours_roules_vscb.json", "https://ppccoder.github.io/vscb-circuits/parcours_roules_vscb.json"]) {
+    try { const r = await fetch(u, { cache: "no-cache" }); if (r.ok) { data = await r.json(); break; } } catch (e) {}
+  }
+  return fusionneParcours(data);
 }
 function chargeParcoursJson(texte){         // ⬆ : fusionne un fichier JSON de parcours puis recharge la page
   let obj; try { obj = JSON.parse(texte); } catch (e) { alert("Fichier illisible : ce n'est pas un JSON de parcours VSCB."); return; }
@@ -2317,7 +2357,8 @@ function chargeParcoursJson(texte){         // ⬆ : fusionne un fichier JSON de
   for (const key in p) {
     const d = p[key];
     if (!d || typeof d.iso !== "string" || !Array.isArray(d.pts) || d.pts.length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(d.iso)) continue;
-    IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: d.lab || "R" };
+    IMPORTS[key] = { pts: d.pts, km: d.km, asc: d.asc, min: d.min, max: d.max, iso: d.iso, i: d.i, nom: d.nom, lab: d.lab || "R", t: Number(d.t) || Date.now() };
+    oublieSuppression(key);
     n++;
   }
   if (!n) { alert("Aucun parcours valide trouvé dans ce fichier."); return; }
@@ -2339,6 +2380,7 @@ document.getElementById("jsonImport").addEventListener("change", e => {
   r.readAsText(f);
   e.target.value = "";
 });
+parcoursPret = chargeParcoursDistant();     // fichier publié sur GitHub : rechargé à chaque démarrage
 
 // ---- Effectifs par sortie : liste + export / import JSON ----
 const effPanel = document.getElementById("effPanel");
@@ -2398,7 +2440,7 @@ const helpItems = [
   { t: "Calendrier", d: "Une ligne par journée, les unes sous les autres : faites défiler de haut en bas (et inversement). En arrivant en bas, le mois suivant s'ajoute automatiquement ; en remontant, le mois précédent. Chaque sortie affiche les mêmes informations que la vue Liste : numéro de circuit, kilométrage, dénivelé, orientation et communes traversées (puce orangée = tracé roulé importé). Les autres jours restent cliquables pour y importer un GPX." },
   { t: "Fiche circuit", d: "Cliquez sur une puce km pour ouvrir la fiche d'un circuit : nom, communes traversées, boutons 🗺️ Tracé GPX (carte Leaflet), 📍 Position, 🧭 Roadbook (tableau km/cap/altitude), et ⬇ Télécharger GPX." },
   { t: "📥 Importer un GPX", d: "Sur la fiche d'un circuit (ou d'un jour sans circuit), importez un fichier GPX exporté de votre appli (Strava, Suunto, etc.) ou au format TCX/KML. Le tracé, les km, le profil, les communes traversées et le GPX téléchargeable sont remplacés par votre parcours réel. Les communes sont déduites des limites communales : dans l'ordre du parcours, et une même commune réapparaît si vous y repassez (aller-retour). L'orientation 🧭 est recalculée selon l'axe de la plus grande diagonale du parcours (du premier au second point le plus éloigné, dans le sens du tracé). ♻️ Tracé officiel restaure le GPX et l'orientation du club." },
-  { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Permet de sauvegarder tous les imports dans un fichier JSON (parcours_roules_vscb.json) et d'en recharger un fichier (fusion). Chaque parcours peut être retiré individuellement." },
+  { t: "💾 Mes parcours", d: "Liste tous les parcours GPX importés de cet appareil. Ceux publiés dans parcours_roules_vscb.json sur GitHub sont rechargés automatiquement à chaque démarrage (un import fait sur l'appareil reste prioritaire s'il est plus récent, un parcours retiré ne revient pas). Permet aussi de sauvegarder tous les imports dans ce fichier JSON et d'en recharger un (fusion). Chaque parcours peut être retiré individuellement." },
   { t: "👥 Effectifs", d: "Saisissez le nombre de cyclistes présents à chaque sortie via le petit champ à côté de chaque puce km. Les données sont mémorisées sur l'appareil et peuvent être exportées dans effectifs_vscb.json, ou chargées depuis effectifs.json sur GitHub (mise à jour automatique au démarrage)." },
   { t: "🌦️ Météo", d: "Chaque cellule affiche la météo prévue ou observée : icône, température à l'heure de départ (Dim 8 h 30 / 9 h, Mardi 14 h / 13 h 30, 9 h les autres jours) et vent (flèche = sens du vent, valeur en km/h). Survolez la ligne pour le détail (min/max, pluie, direction). Les données viennent de meteo.json sur GitHub ; si une date manque, la page interroge Open-Meteo (Beauvoir-sur-Niort) et conserve le résultat sur l'appareil." },
   { t: "🧭 Filtre « vent »", d: "Sélectionnez une direction de vent sur la rose : le programme retient les circuits dont la première moitié se fait face au vent et la deuxième sous le vent. Utile pour planifier une sortie selon les conditions." },
@@ -2489,7 +2531,10 @@ async function chargerGpx(){
   const n = appliqueGpx(data);
   if (n) { try { const db = await idbOuvrir(); idbEcrit(db, "circuits_gpx", data); } catch (e) {} }   // copie pour le hors-ligne
   if (ecran) ecran.style.display = "none";
-  if (!gpxInit) { restaurerImports(); buildList(); renderMonth(); gpxInit = true; }
+  if (!gpxInit) {
+    if (parcoursPret) { try { await parcoursPret; } catch (e) {} }   // parcours publiés sur GitHub, fusionnés avant restauration
+    restaurerImports(); buildList(); renderMonth(); gpxInit = true;
+  }
   if (!n) {                              // aucun tracé (pas de connexion, aucune copie) : réessai possible
     if (ecran) ecran.style.display = "flex";
     if (msg) msg.textContent = "⚠️ Tracés GPX indisponibles : pas de connexion et aucune copie locale.\nLe calendrier (dates, communes, recherche) reste utilisable — reconnectez-vous pour les tracés.";
