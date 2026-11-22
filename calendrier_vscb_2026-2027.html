@@ -423,6 +423,7 @@ function moins364(iso){ const d = new Date(iso + "T00:00:00"); d.setDate(d.getDa
   }
 })();
 function tk(iso, c){ return (c.srcISO || iso) + "#" + c.label; }   // clé GPX/profil du tracé d'origine
+function nomCircuit(c){ return c && c.roule ? "🚴 Roulé" : "Circuit " + (c ? c.label : ""); }   // libellé d'un circuit (ou d'un parcours roulé importé)
 function evDe(iso){                      // entrée calendrier de la date (créée si besoin : jour sans sortie,
   if (!byISO[iso]) {                     // date hors saison…) — permet d'y importer un parcours roulé
     const d = iso.split("-").map(Number);
@@ -916,7 +917,7 @@ function buildGpx(iso, i){
   const full = FULLPTS[tk(iso, c)];
   const ev = byISO[iso];
   const d = iso.split("-").map(Number);
-  const titre = "Circuit " + c.label + " — " + t.kmc + " km — " + ev.weekday + " " + d[2] + " " + MOIS[d[1]-1] + " " + d[0]
+  const titre = nomCircuit(c) + " — " + t.kmc + " km — " + ev.weekday + " " + d[2] + " " + MOIS[d[1]-1] + " " + d[0]
     + (c.reversed ? " (à l\u2019envers)" : "");
   const wpts = (c.stops || []).map((s, j) => {
     const p = c.geo[j]; if (!p) return "";
@@ -1750,7 +1751,7 @@ function buildRoadbook(iso, i, sansHisto){
   const hiver = [10, 11, 12, 1, 2, 3].includes(moisS);
   const heure = ev.weekday === "Dimanche" ? (hiver ? "9 h" : "8 h 30") : (hiver ? "13 h 30" : "14 h");
   const logo = (document.querySelector("header .logo") || {}).src || "";
-  const titre = "Circuit " + c.label + (c.reversed ? " ↺ (à l'envers)" : "");
+  const titre = nomCircuit(c) + (c.reversed ? " ↺ (à l'envers)" : "");
   const html = `<style>
 @page{size:A4 portrait;margin:12mm}
 #rbView{font:12px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1c2430}
@@ -1996,7 +1997,7 @@ function runSearch(q){
       const items = ev.circuits.filter(c => rx.test(c.route)).map(c => {
         n++;
         return `<div class="res" data-iso="${ev.date}">
-          <div class="rd">Circuit ${c.label} · ${c.km} km${c.reversed ? " (à l'envers)" : ""}</div>
+          <div class="rd">${nomCircuit(c)} · ${c.km} km${c.reversed ? " (à l'envers)" : ""}</div>
           <div class="rc">${ev.weekday} ${frDate(ev.date)} — ${routeChain(c.route, q)}</div>
         </div>`;
       }).join("");
@@ -2020,7 +2021,7 @@ function runSearch(q){
 let triListe = "date", triSens = 1;   // tri courant de la vue liste
 function ligneCircuit(ev, c){
   const t = TRACKS[tk(ev.date, c)];
-  return `<div class="lc"><span class="lt">Circuit ${c.label}</span><span class="km kmchip">${c.km} km${c.reversed ? " ↺" : ""}</span>${(t && t.asc ? `<span class="km kmchip aschip">D+ ${t.asc} m</span>` : "") + (t && t.ori ? `<span class="km kmchip orchip">🧭 ${escX(t.ori)}</span>` : "")}<br><span class="path">${c.route}</span></div>`;
+  return `<div class="lc"><span class="lt">${nomCircuit(c)}</span><span class="km kmchip">${c.km} km${c.reversed ? " ↺" : ""}</span>${(t && t.asc ? `<span class="km kmchip aschip">D+ ${t.asc} m</span>` : "") + (t && t.ori ? `<span class="km kmchip orchip">🧭 ${escX(t.ori)}</span>` : "")}<br><span class="path">${c.route}</span></div>`;
 }
 const oriDeg = s => { const d = (s || "").split(" → ")[0]; return COMPASS.indexOf(d) < 0 ? 9999 : COMPASS.indexOf(d) * 22.5; };
 const TRI_LBL = { date: "📅 Date", km: "📏 km", asc: "⛰️ D+", ori: "🧭 Orientation" };
@@ -2190,7 +2191,7 @@ function renderVentList(){
     const sel = ventSel.includes(ev.date);
     return `<div class="res${sel ? " selv" : ""}" data-iso="${ev.date}"
         title="${sel ? "Ôter ce jour de la sélection (les fiches s'effacent en arrière-plan)" : "Ajouter ce jour à la sélection (les fiches s'ajoutent en arrière-plan, max 5)"}">
-       <div class="rd">Circuit ${c.label} · ${c.km} km${c.reversed ? " (à l'envers)" : ""}${sel ? ` <span class="selbadge">✓ retenu</span>` : ""}</div>
+       <div class="rd">${nomCircuit(c)} · ${c.km} km${c.reversed ? " (à l'envers)" : ""}${sel ? ` <span class="selbadge">✓ retenu</span>` : ""}</div>
        <div class="rc rvh">${ev.weekday} ${frDate(ev.date)} — 1re moitié ${VENT_FLECHE[dir8(b1)]} ${dir8(b1)} · 2e moitié ${VENT_FLECHE[dir8(b2)]} ${dir8(b2)}</div>
      </div>`;
   }).join("")
@@ -2391,7 +2392,7 @@ function majEffListe(){                    // reconstruit la liste des effectifs
   ul.innerHTML = keys.map(key => {
     const [iso, label] = key.split("#");
     const n = EFFETIFS[key];
-    return `<div class="effRow"><div><b>${frDate(iso)}</b> — circuit ${esc(label)}<br><span class="note">${n} cycliste${n>1?"s":""}</span></div><input type="number" class="eff" min="0" value="${n}" data-key="${esc(key)}" title="Modifier le nombre de cyclistes"></div>`;
+    return `<div class="effRow"><div><b>${frDate(iso)}</b> — ${label === "R" ? "parcours roulé" : "circuit " + esc(label)}<br><span class="note">${n} cycliste${n>1?"s":""}</span></div><input type="number" class="eff" min="0" value="${n}" data-key="${esc(key)}" title="Modifier le nombre de cyclistes"></div>`;
   }).join("");
   ul.querySelectorAll("input.eff").forEach(input => input.onchange = function(){
     const key = this.dataset.key, v = parseInt(this.value || "0", 10);
