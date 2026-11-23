@@ -2275,8 +2275,12 @@ function ouvrirSelVent(sansHisto){
 ventBtn.onclick = () => {
   if (ventPanel.style.display !== "flex") {              // ouverture du panneau : on repart d'une liste vierge
     ventSel = [];                                        // sélections précédentes désactivées
-    majVent();
-    ouvrirSelVent();                                     // referme la pile de fiches devenue obsolète
+    // caler la rose sur le vent du jour si aucune direction n'a encore été choisie
+    if (!ventDir && METEO[todayISO] && typeof METEO[todayISO].d === "number") {
+      ventDir = dir8(METEO[todayISO].d);                 // direction d'où vient le vent (N, NE, E…)
+    }
+    ouvrirSelVent();                                     // construit la rose (et referme la pile de fiches)
+    majVent();                                           // surbrillance sur la pale du vent du jour
   }
   ventPanel.style.display = ventPanel.style.display === "flex" ? "none" : "flex";
 };
