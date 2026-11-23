@@ -85,7 +85,7 @@
   .wx .wemo{font-size:1.3rem;line-height:1}
   .wx .wtemp{font-weight:700;font-size:.72rem;line-height:1}
   .wx .wnd{display:inline-flex;align-items:center;gap:3px;font-size:.72rem;line-height:1;color:#3f5260}
-  .wx .wfl{display:inline-flex;align-items:center;justify-content:center;width:1.8rem;height:1.8rem;color:#1f5c39;flex:0 0 auto}
+  .wx .wfl{display:inline-flex;align-items:center;justify-content:center;width:1.05rem;height:1.05rem;border-radius:50%;background:var(--accent-soft);border:1px solid rgba(46,125,79,.4);color:#1f5c39;flex:0 0 auto}
   .wx .wfl svg{display:block}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
@@ -702,8 +702,8 @@ function ligneMeteo(iso){                     // petite ligne météo ajoutée e
   wd.className = "wnd";
   const fl = document.createElement("span");
   fl.className = "wfl";
-  fl.style.transform = "rotate(" + ((w.d || 0) % 360) + "deg)";   // hampe de vent = direction d ou vient le vent
-  fl.innerHTML = '<svg viewBox="0 0 12 12" width="100%" height="100%" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1,1"/><line x1="6" y1="1" x2="6" y2="11" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1,1"/><line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="0.6" stroke-dasharray="1,1"/><line x1="6" y1="2" x2="6" y2="10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><polygon points="6,10 7,11 6,10.4 5,11" fill="currentColor"/><line x1="6" y1="6" x2="9" y2="6" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/></svg>';
+  fl.style.transform = "rotate(" + (((w.d || 0) + 180) % 360) + "deg)";   // flèche = sens où va le vent
+  fl.innerHTML = '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M6 1.2 V10.8 M1.9 5.2 L6 1.2 L10.1 5.2" fill="none" stroke="currentColor" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   wd.appendChild(fl);
   wd.appendChild(document.createTextNode(w.w + " km/h"));
   el.appendChild(wd);
@@ -2272,23 +2272,12 @@ function ouvrirSelVent(sansHisto){
   });
   document.getElementById("roseCentre").onclick = () => { ventOn = !ventOn; majVent(); if (!ventOn) ventPanel.style.display = "none"; };
 })();
-function ventDuJour(iso){                       // direction d'où vient le vent pour une date donnée
-  if (METEO[iso] && typeof METEO[iso].d === "number") return METEO[iso].d;   // météo en mémoire
-  try {                                          // repli sur la copie locale (chargement asynchrone)
-    const m = JSON.parse(localStorage.getItem("vscb_meteo") || "{}");
-    if (m[iso] && typeof m[iso].d === "number") return m[iso].d;
-  } catch (e) {}
-  return null;
-}
 ventBtn.onclick = () => {
   if (ventPanel.style.display !== "flex") {              // ouverture du panneau : on repart d'une liste vierge
     ventSel = [];                                        // sélections précédentes désactivées
-    // caler la rose sur le vent du jour sélectionné (ou d'aujourd'hui) si aucun choix n'a été fait
-    if (!ventDir) {
-      const cv = document.getElementById("circView");
-      const isoSel = (cv && cv.dataset.iso) || todayISO;   // jour ouvert, sinon aujourd'hui
-      const d = ventDuJour(isoSel);
-      if (d) { ventDir = dir8(d); ventOn = true; }       // active le filtre pour montrer les circuits
+    // caler la rose sur le vent du jour si aucune direction n'a encore été choisie
+    if (!ventDir && METEO[todayISO] && typeof METEO[todayISO].d === "number") {
+      ventDir = dir8(METEO[todayISO].d);                 // direction d'où vient le vent (N, NE, E…)
     }
     ouvrirSelVent();                                     // construit la rose (et referme la pile de fiches)
     majVent();                                           // surbrillance sur la pale du vent du jour
