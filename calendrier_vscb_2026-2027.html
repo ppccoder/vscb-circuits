@@ -2272,12 +2272,23 @@ function ouvrirSelVent(sansHisto){
   });
   document.getElementById("roseCentre").onclick = () => { ventOn = !ventOn; majVent(); if (!ventOn) ventPanel.style.display = "none"; };
 })();
+function ventDuJour(iso){                       // direction d'où vient le vent pour une date donnée
+  if (METEO[iso] && typeof METEO[iso].d === "number") return METEO[iso].d;   // météo en mémoire
+  try {                                          // repli sur la copie locale (chargement asynchrone)
+    const m = JSON.parse(localStorage.getItem("vscb_meteo") || "{}");
+    if (m[iso] && typeof m[iso].d === "number") return m[iso].d;
+  } catch (e) {}
+  return null;
+}
 ventBtn.onclick = () => {
   if (ventPanel.style.display !== "flex") {              // ouverture du panneau : on repart d'une liste vierge
     ventSel = [];                                        // sélections précédentes désactivées
-    // caler la rose sur le vent du jour si aucune direction n'a encore été choisie
-    if (!ventDir && METEO[todayISO] && typeof METEO[todayISO].d === "number") {
-      ventDir = dir8(METEO[todayISO].d);                 // direction d'où vient le vent (N, NE, E…)
+    // caler la rose sur le vent du jour sélectionné (ou d'aujourd'hui) si aucun choix n'a été fait
+    if (!ventDir) {
+      const cv = document.getElementById("circView");
+      const isoSel = (cv && cv.dataset.iso) || todayISO;   // jour ouvert, sinon aujourd'hui
+      const d = ventDuJour(isoSel);
+      if (d) { ventDir = dir8(d); ventOn = true; }       // active le filtre pour montrer les circuits
     }
     ouvrirSelVent();                                     // construit la rose (et referme la pile de fiches)
     majVent();                                           // surbrillance sur la pale du vent du jour
