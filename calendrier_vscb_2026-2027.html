@@ -758,6 +758,16 @@ function openDay(iso, sansHisto){
   tb.classList.remove("mode-liste");
   tb.classList.add("mode-circ");
   initCircBar();
+  // ouvrir automatiquement le tracé GPX du premier circuit si des données géographiques existent
+  const carte0 = cirCarte();
+  if (carte0) {
+    const b0 = carte0.querySelector(".mapbar .mapbtn");
+    const holder0 = carte0.querySelector(".mapholder");
+    const c0 = ev.circuits[0];
+    if (b0 && holder0 && holder0.style.display !== "block" && c0 && c0.geo && c0.geo.length) {
+      b0.click(); majCircBar();
+    }
+  }
   if (!sansHisto) pousserVue({ vue: "circ", iso });
   window.scrollTo({ top: 0 });
 }
@@ -2539,9 +2549,18 @@ async function chargerGpx(){
   const n = appliqueGpx(data);
   if (n) { try { const db = await idbOuvrir(); idbEcrit(db, "circuits_gpx", data); } catch (e) {} }   // copie pour le hors-ligne
   if (ecran) ecran.style.display = "none";
-  if (!gpxInit) {
+  if (!gpxInit) { 
     if (parcoursPret) { try { await parcoursPret; } catch (e) {} }   // parcours publiés sur GitHub, fusionnés avant restauration
-    restaurerImports(); buildList(); renderMonth(); gpxInit = true;
+    restaurerImports(); buildList(); 
+    // pointer sur le mois courant au démarrage
+    const t = new Date();
+    if (t >= new Date(2026,9,4)) { cur = new Date(t.getFullYear(), t.getMonth(), 1); }
+    else cur = new Date(2026,9,1);
+    renderMonth(); 
+    gpxInit = true; 
+    // se caler sur la ligne du jour
+    const jour = grid.querySelector('.drow[data-iso="' + todayISO + '"]');
+    if (jour) demanderScroll(jour); 
   }
   if (!n) {                              // aucun tracé (pas de connexion, aucune copie) : réessai possible
     if (ecran) ecran.style.display = "flex";
