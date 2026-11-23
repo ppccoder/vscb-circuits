@@ -85,7 +85,7 @@
   .wx .wemo{font-size:1.3rem;line-height:1}
   .wx .wtemp{font-weight:700;font-size:.72rem;line-height:1}
   .wx .wnd{display:inline-flex;align-items:center;gap:3px;font-size:.72rem;line-height:1;color:#3f5260}
-  .wx .wfl{display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;color:#1f5c39;flex:0 0 auto}
+  .wx .wfl{display:inline-flex;align-items:center;justify-content:center;width:1.8rem;height:1.8rem;color:#1f5c39;flex:0 0 auto}
   .wx .wfl svg{display:block}
   .cell.has .num{cursor:pointer}
   .cell.has:hover{border-color:var(--accent);box-shadow:var(--shadow)}
@@ -703,7 +703,7 @@ function ligneMeteo(iso){                     // petite ligne météo ajoutée e
   const fl = document.createElement("span");
   fl.className = "wfl";
   fl.style.transform = "rotate(" + ((w.d || 0) % 360) + "deg)";   // hampe de vent = direction d ou vient le vent
-  fl.innerHTML = '<svg viewBox="0 0 12 12" width="100%" height="100%" aria-hidden="true"><line x1="6" y1="6" x2="6" y2="2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="6" y1="4" x2="8.5" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="6" y1="2" x2="9" y2="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  fl.innerHTML = '<svg viewBox="0 0 12 12" width="100%" height="100%" aria-hidden="true"><line x1="6" y1="6" x2="6" y2="2" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/><line x1="6" y1="4" x2="8.5" y2="4" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/><line x1="6" y1="2" x2="9" y2="2" stroke="currentColor" stroke-width="0.8" stroke-linecap="round"/></svg>';
   wd.appendChild(fl);
   wd.appendChild(document.createTextNode(w.w + " km/h"));
   el.appendChild(wd);
