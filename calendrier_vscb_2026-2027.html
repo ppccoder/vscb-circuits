@@ -877,6 +877,8 @@ function openDay(iso, sansHisto){
   circRetour = document.getElementById("listView").style.display === "block" ? "liste"
     : resultsBox.style.display === "block" ? "rech" : "cal";
   circScroll = window.scrollY;
+  const appViewEl = document.getElementById("appView");
+  if (appViewEl) appViewEl.style.display = "none";
   document.body.classList.remove("printing");               // on quitte le mode liste : l'impression ciblera la vue courante
   calView.style.display = "none"; resultsBox.style.display = "none";
   document.getElementById("searchHint").style.display = "none";
@@ -2929,6 +2931,9 @@ function renderFluxView(){
             const t = TRACKS[tk(day.date, c)] || {};
             const isImported = !!IMPORTS[tk(day.date, c)];
             const badgeBg = isImported ? "bg-violet-50 text-violet-800 border-violet-200" : "bg-club-50 text-club-800 border-club-200";
+            const effKey = tk(day.date, c);
+            const effVal = EFFETIFS[effKey];
+            const effHtml = effVal ? `<span style="font-size:0.7rem; color:#ea580c; margin-left:6px;">${effVal} cycliste${effVal>1?'s':''}</span>` : "";
             return `<div class="circuit-bloc">
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold border ${badgeBg}">
                 ${isImported ? "🚴" : "🏍️"} ${escX(c.label)}
@@ -2937,6 +2942,12 @@ function renderFluxView(){
                 ${badgeKm(t.kmc || c.km)} ${badgeD(t.asc || 0)} ${badgeVent(t.ori || "")}
               </div>
               <div class="etapes">${routeChain(c.route, q)}</div>
+              <div style="margin-top:6px; display:flex; justify-content:space-between; align-items:center;">
+                <button class="btn" style="font-size:0.7rem; padding:0.3rem 0.6rem;" onclick="openDay('${day.date}')">
+                  🗺️ Voir carte + profil
+                </button>
+                ${effHtml}
+              </div>
             </div>`;
           }).join("")}
         </div>
@@ -2975,6 +2986,8 @@ function renderSplitView(){
     });
     const isSelected = day.date === selectedDay.date;
     const hasCircuits = circuits.length > 0;
+    const effs = day.circuits.map(c => EFFETIFS[tk(day.date, c)]).filter(v => v).length;
+    const effHtml = effs ? `<span style="font-size:0.7rem; color:#ea580c;">${effs} cycliste${effs>1?'s':''}</span>` : "";
     leftHtml += `
       <button class="item-liste ${isSelected ? 'selectionne' : ''}" onclick="selectSplitDay('${day.date}')">
         <div>
@@ -2982,6 +2995,7 @@ function renderSplitView(){
           <div style="font-size:0.78rem; color:#374151;">${meteoDuJour(day.date) ? meteoDuJour(day.date).t + "° · " + meteoDuJour(day.date).w + " km/h" : ""}</div>
         </div>
         ${hasCircuits ? `<span class="badge badge-km">${circuits.length} circuit(s)</span>` : `<span style="font-size:0.75rem; color:#374151;">Libre</span>`}
+        ${effHtml}
       </button>`;
   });
   leftHtml += `</div>`;
@@ -3008,6 +3022,9 @@ function renderSplitView(){
     circuits.forEach(c => {
       const t = TRACKS[tk(selectedDay.date, c)] || {};
       const isImported = !!IMPORTS[tk(selectedDay.date, c)];
+      const effKey = tk(selectedDay.date, c);
+      const effVal = EFFETIFS[effKey];
+      const effHtml = effVal ? `<span style="font-size:0.7rem; color:#ea580c; margin-left:6px;">${effVal} cycliste${effVal>1?'s':''}</span>` : "";
       rightHtml += `
         <div style="border-top:1px solid #e2e8f0; padding-top:1rem; margin-top:1rem;">
           <div class="flex items-center gap-2">
@@ -3022,6 +3039,12 @@ function renderSplitView(){
           </div>
           <div class="puces-communes">
             ${formatCommunesList(c.stops || c.route.split(" – "), q)}
+          </div>
+          <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <button class="btn" style="font-size:0.7rem; padding:0.3rem 0.6rem;" onclick="openDay('${selectedDay.date}')">
+              🗺️ Voir carte + profil + roadbook
+            </button>
+            ${effHtml}
           </div>
         </div>`;
     });
@@ -3079,9 +3102,17 @@ function renderGrilleView(){
             <strong style="color:#1e3a8a;">${day.weekday.slice(0,3).toUpperCase()} ${day.date.slice(8,10)}</strong>
             <span style="font-size:0.7rem; color:#ea580c;">${meteoDuJour(day.date) ? meteoDuJour(day.date).t + "°" : ""}</span>
           </div>
-          ${circuits.map(c => `<div class="etiquette-circuit">${escX(c.label)}<br>${c.km} km · D+ ${(TRACKS[tk(day.date, c)] || {}).asc || 0}m</div>`).join("")}
+          ${circuits.map(c => {
+            const t = TRACKS[tk(day.date, c)] || {};
+            const effKey = tk(day.date, c);
+            const effVal = EFFETIFS[effKey];
+            const effHtml = effVal ? `<span style="font-size:0.65rem; color:#ea580c; display:block; margin-top:2px;">${effVal} cycliste${effVal>1?'s':''}</span>` : "";
+            return `<div class="etiquette-circuit">${escX(c.label)}<br>${c.km} km · D+ ${(TRACKS[tk(day.date, c)] || {}).asc || 0}m${effHtml}</div>`;
+          }).join("")}
         </div>
-        <button class="btn btn-vert" style="width:100%; margin-top:0.5rem; font-size:0.75rem;" onclick="openDay('${day.date}')">+ Parcours</button>
+        <button class="btn btn-vert" style="width:100%; margin-top:0.5rem; font-size:0.75rem;" onclick="openDay('${day.date}')">
+          ${circuits.length ? "🗺️ Voir carte" : "+ Parcours"}
+        </button>
       </div>`;
     });
     html += `</div></div>`;
