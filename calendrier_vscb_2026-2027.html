@@ -3019,7 +3019,7 @@ function renderSplitView(){
     <p style="color:#374151; margin-bottom:1rem;">Météo prévue : ${meteoDuJour(selectedDay.date) ? meteoDuJour(selectedDay.date).t + "° · " + meteoDuJour(selectedDay.date).w + " km/h" : ""}</p>`;
 
   if (circuits.length > 0) {
-    circuits.forEach(c => {
+    circuits.forEach((c, ci) => {
       const t = TRACKS[tk(selectedDay.date, c)] || {};
       const isImported = !!IMPORTS[tk(selectedDay.date, c)];
       const effKey = tk(selectedDay.date, c);
@@ -3028,7 +3028,7 @@ function renderSplitView(){
       rightHtml += `
         <div style="border-top:1px solid #e2e8f0; padding-top:1rem; margin-top:1rem;">
           <div class="flex items-center gap-2">
-            <span class="w-9 h-9 rounded-xl bg-club-700 text-white flex items-center justify-center font-bold text-sm shadow-xs">1</span>
+            <span class="w-9 h-9 rounded-xl bg-club-700 text-white flex items-center justify-center font-bold text-sm shadow-xs">${ci + 1}</span>
             <div>
               <h3 style="font-size:1.1rem; font-weight:700;">${escX(c.label)} ${isImported ? "(importé)" : ""}</h3>
               <p style="font-size:0.75rem; color:#374151;">Parcours ${isImported ? "personnel importé" : "officiel du club"} · Départ Beauvoir</p>
@@ -3046,6 +3046,7 @@ function renderSplitView(){
             </button>
             ${effHtml}
           </div>
+          <div id="split-map-${selectedDay.date}-${ci}" style="margin-top:8px; height:240px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc;"></div>
         </div>`;
     });
   } else {
@@ -3061,9 +3062,49 @@ function renderSplitView(){
   return `<div class="split">${leftHtml}${rightHtml}</div>`;
 }
 
+let splitMaps = {};   // { "date-ci": L.Map instance }
+
+function initSplitMaps(){
+  document.querySelectorAll('[id^="split-map-"]').forEach(el => {
+    const id = el.id;
+    if (splitMaps[id]) return;   // déjà initialisée
+    const parts = id.split("-"); // split-map-2026-11-24-0
+    const iso = parts[1] + "-" + parts[2] + "-" + parts[3];
+    const ci = Number(parts[4]);
+    const day = DATA.find(d => d.date === iso);
+    if (!day) return;
+    const c = day.circuits[ci];
+    if (!c || !c.geo || !c.geo.length) return;
+    const t = TRACKS[tk(iso, c)] || {};
+    const pts = t.pts || [];
+    if (!pts.length) return;
+
+    const map = L.map(el, { scrollWheelZoom: false, zoomControl: false });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap",
+      maxZoom: 18,
+      referrerPolicy: "strict-origin-when-cross-origin"
+    }).addTo(map);
+
+    const latlngs = pts.map(p => [p[0], p[1]]);
+    L.polyline(latlngs, { color: "#ea580c", weight: 4, opacity: 0.85 }).addTo(map);
+    L.circleMarker(latlngs[0], { radius: 6, color: "#fff", weight: 2, fillColor: "#1e3a8a", fillOpacity: 1 }).addTo(map).bindPopup("Départ / Arrivée · Beauvoir-sur-Niort", { autoPan: false });
+
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
+    splitMaps[id] = map;
+  });
+}
+
 let stateSplitDay = DATA[0] ? DATA[0].date : todayISO;
 
-function selectSplitDay(date){ stateSplitDay = date; appView.innerHTML = renderSplitView(); }
+function selectSplitDay(date){
+  // détruire les anciennes cartes Leaflet pour éviter les fuites
+  Object.values(splitMaps).forEach(m => { try { m.remove(); } catch (e) {} });
+  splitMaps = {};
+  stateSplitDay = date;
+  appView.innerHTML = renderSplitView();
+  setTimeout(initSplitMaps, 50);
+}
 
 // ---- VUE 3 : GRILLE SEMAINE ----
 function renderGrilleView(){
