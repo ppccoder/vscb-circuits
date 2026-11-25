@@ -3025,10 +3025,11 @@ function renderSplitView(){
       const effKey = tk(selectedDay.date, c);
       const effVal = EFFETIFS[effKey];
       const effHtml = effVal ? `<span style="font-size:0.7rem; color:#ea580c; margin-left:6px;">${effVal} cycliste${effVal>1?'s':''}</span>` : "";
+      const ciOrig = day.circuits.indexOf(c);
       rightHtml += `
         <div style="border-top:1px solid #e2e8f0; padding-top:1rem; margin-top:1rem;">
           <div class="flex items-center gap-2">
-            <span class="w-9 h-9 rounded-xl bg-club-700 text-white flex items-center justify-center font-bold text-sm shadow-xs">${ci + 1}</span>
+            <span class="w-9 h-9 rounded-xl bg-club-700 text-white flex items-center justify-center font-bold text-sm shadow-xs">${ciOrig + 1}</span>
             <div>
               <h3 style="font-size:1.1rem; font-weight:700;">${escX(c.label)} ${isImported ? "(importé)" : ""}</h3>
               <p style="font-size:0.75rem; color:#374151;">Parcours ${isImported ? "personnel importé" : "officiel du club"} · Départ Beauvoir</p>
@@ -3040,13 +3041,16 @@ function renderSplitView(){
           <div class="puces-communes">
             ${formatCommunesList(c.stops || c.route.split(" – "), q)}
           </div>
-          <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="margin-top:8px; display:flex; gap:6px; justify-content:space-between; align-items:center;">
             <button class="btn" style="font-size:0.7rem; padding:0.3rem 0.6rem;" onclick="openDay('${selectedDay.date}')">
               🗺️ Voir carte + profil + roadbook
             </button>
+            <button class="btn" style="font-size:0.7rem; padding:0.3rem 0.6rem;" onclick="downloadGpx('${selectedDay.date}', ${ciOrig})">
+              ⬇ GPX
+            </button>
             ${effHtml}
           </div>
-          <div id="split-map-${selectedDay.date}-${ci}" style="margin-top:8px; height:240px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc;"></div>
+          <div id="split-map-${selectedDay.date}-${ciOrig}" style="margin-top:8px; height:240px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc;"></div>
         </div>`;
     });
   } else {
