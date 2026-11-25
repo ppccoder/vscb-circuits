@@ -140,6 +140,8 @@
   .toolbar.mode-liste #searchBtn, .toolbar.mode-liste #listBtn, .toolbar.mode-liste #todayBtn, .toolbar.mode-liste #ventBtn, .toolbar.mode-liste #parcBtn, .toolbar.mode-liste #helpBtn, .toolbar.mode-liste #effBtn{display:none}
   /* Vue circuit plein écran (façon vue liste) : barre dédiée + fiche intégrée à la page */
   .toolbar.mode-circ #searchBtn, .toolbar.mode-circ #listBtn, .toolbar.mode-circ #todayBtn, .toolbar.mode-circ #ventBtn, .toolbar.mode-circ #parcBtn, .toolbar.mode-circ #helpBtn, .toolbar.mode-circ #effBtn{display:none}
+  /* Vues maquette 2 (Flux / Split / Grille) : masquer Effectifs (réservé au calendrier) */
+  #appView[style*="display: block"] #effBtn, #appView:not([style*="display: none"]) #effBtn{display:none}
   #circHead{display:none;max-width:960px;margin:2px auto 10px}
   #circHead h2{margin:0 0 2px;font-size:1.15rem}
   #circHead .date-sub{color:var(--muted);font-size:.85rem}
@@ -2069,6 +2071,8 @@ document.getElementById("circView").addEventListener("click", e => {
 });
 
 document.getElementById("todayBtn").onclick = () => {
+  // si on est dans une vue maquette 2, revenir au calendrier avant de se caler sur le jour
+  if (viewMode !== 'cal') { setViewMode('cal'); }
   const lv = document.getElementById("listView");
   if (lv.style.display === "block") {          // mode Liste / Imprimer
     // positionne le haut de la liste sur la première date juste après aujourd'hui
