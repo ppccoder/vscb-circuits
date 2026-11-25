@@ -3051,6 +3051,12 @@ function renderSplitView(){
             ${effHtml}
           </div>
           <div id="split-map-${selectedDay.date}-${ciOrig}" style="margin-top:8px; height:240px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#f8fafc;"></div>
+
+          <!-- Profil altimétrique compact -->
+          <div id="split-profil-${selectedDay.date}-${ciOrig}" style="margin-top:8px; height:70px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#fff;"></div>
+
+          <!-- Roadbook simplifié -->
+          <div id="split-rb-${selectedDay.date}-${ciOrig}" style="margin-top:6px; font-size:0.7rem; max-height:120px; overflow-y:auto;"></div>
         </div>`;
     });
   } else {
@@ -3099,6 +3105,127 @@ function initSplitMaps(){
   });
 }
 
+// ---- Profil altimétrique compact dans le Split-View ----
+function initSplitProfils(){
+  document.querySelectorAll('[id^="split-profil-"]').forEach(el => {
+    const id = el.id;
+    if (document.getElementById(id + "-done")) return;   // déjà fait
+    const parts = id.split("-"); // split-profil-2026-11-24-0
+    const iso = parts[1] + "-" + parts[2] + "-" + parts[3];
+    const ci = Number(parts[4]);
+    const day = DATA.find(d => d.date === iso);
+    if (!day) return;
+    const c = day.circuits[ci];
+    if (!c || !c.geo) return;
+    const t = TRACKS[tk(iso, c)] || {};
+    const pts = t.pts || [];
+    if (!pts.length) return;
+
+    // distances cumulées (km)
+    const dist = [0];
+    for (let j = 1; j < pts.length; j++) {
+      dist.push(dist[j-1] + distH(pts[j-1], pts[j]) / 1000);
+    }
+    const dmax = dist[dist.length-1] || 1;
+    const emin = Math.min(...pts.map(p => p[2])) || 0;
+    const emax = Math.max(...pts.map(p => p[2])) || emin + 10;
+
+    // échantillonner à ~60 points pour le SVG
+    const W = el.clientWidth || 300;
+    const H = 60;
+    const padL = 30, padR = 10, padT = 8, padB = 14;
+    const x = d => padL + (d / dmax) * (W - padL - padR);
+    const y = e => padT + (1 - (e - emin) / (emax - emin)) * (H - padT - padB);
+
+    // échantillonnage
+    const step = Math.max(1, Math.floor(pts.length / 60));
+    const ech = [];
+    for (let j = 0; j < pts.length; j += step) ech.push(j);
+    if (ech[ech.length-1] !== pts.length-1) ech.push(pts.length-1);
+
+    const line = ech.map(j => `${x(dist[j]).toFixed(1)},${y(pts[j][2]).toFixed(1)}`).join(" ");
+    const area = `${padL},${H-padB} ${line} ${x(dmax).toFixed(1)},${H-padB}`;
+
+    // ticks altitude
+    const ticks = [];
+    for (let f = 0; f <= 4; f++) {
+      const e = emin + (emax - emin) * f / 4;
+      ticks.push(`<text x="${padL-4}" y="${(y(e)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#64748b">${Math.round(e)}</text>`);
+    }
+    const kmTicks = [0, 0.25, 0.5, 0.75, 1].map(f =>
+      `<text x="${x(dmax*f).toFixed(1)}" y="${H-3}" text-anchor="middle" font-size="9" fill="#64748b">${(dmax*f).toFixed(0)}</text>`).join("");
+
+    el.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;display:block">
+        ${ticks.join("")}
+        <polygon points="${area}" fill="#ea580c" opacity="0.15" stroke="none"/>
+        <polyline points="${line}" fill="none" stroke="#ea580c" stroke-width="2"/>
+        ${kmTicks}
+      </svg>
+      <div style="display:flex; justify-content:space-between; font-size:8px; color:#64748b; margin-top:2px;">
+        <span>D+ ${Math.round(emax-emin)} m</span>
+        <span>${Math.round(dmax)} km</span>
+      </div>`;
+    el.setAttribute(id + "-done", "1");
+  });
+}
+
+// ---- Roadbook simplifié dans le Split-View ----
+function initSplitRoadbooks(){
+  document.querySelectorAll('[id^="split-rb-"]').forEach(el => {
+    const id = el.id;
+    if (document.getElementById(id + "-done")) return;
+    const parts = id.split("-"); // split-rb-2026-11-24-0
+    const iso = parts[1] + "-" + parts[2] + "-" + parts[3];
+    const ci = Number(parts[4]);
+    const day = DATA.find(d => d.date === iso);
+    if (!day) return;
+    const c = day.circuits[ci];
+    if (!c || !c.geo) return;
+    const t = TRACKS[tk(iso, c)] || {};
+    const pts = t.pts || [];
+    if (!pts.length) return;
+
+    const dist = [0];
+    for (let j = 1; j < pts.length; j++) dist.push(dist[j-1] + distH(pts[j-1], pts[j]) / 1000);
+    const dmax = dist[dist.length-1] || 1;
+
+    // points clés : toutes les ~5 km + départ/arrivée
+    const stepKm = 5;
+    const keyIdx = [0];
+    for (let j = 1; j < pts.length; j++) {
+      if (dist[j] >= (keyIdx.length) * stepKm && dist[j] <= dmax) keyIdx.push(j);
+    }
+    if (keyIdx[keyIdx.length-1] !== pts.length-1) keyIdx.push(pts.length-1);
+
+    const capDeg = (a, b) => {
+      const r = Math.PI/180, la1 = a[0]*r, la2 = b[0]*r, dl = (b[1]-a[1])*r;
+      const y = Math.sin(dl)*Math.cos(la2);
+      const x = Math.cos(la1)*Math.sin(la2) - Math.sin(la1)*Math.cos(la2)*Math.cos(dl);
+      return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+    };
+    const dir8 = brg => ["N","NE","E","SE","S","SO","O","NO"][Math.round(brg/45)%8];
+
+    let html = `<table style="width:100%;font-size:8px;border-collapse:collapse">
+      <thead><tr style="background:#f8fafc"><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #e2e8f0">Km</th><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #e2e8f0">Alt.</th><th style="text-align:left;padding:2px 4px;border-bottom:1px solid #e2e8f0">Cap</th></tr></thead>
+      <tbody>`;
+    for (let k = 0; k < keyIdx.length; k++) {
+      const j = keyIdx[k];
+      const p = pts[j];
+      const prev = keyIdx[k-1] != null ? pts[keyIdx[k-1]] : p;
+      const brg = capDeg(prev, p);
+      html += `<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:1px 4px">${dist[j].toFixed(1)}</td>
+        <td style="padding:1px 4px">${Math.round(p[2])} m</td>
+        <td style="padding:1px 4px">${dir8(brg)}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    el.innerHTML = html;
+    el.setAttribute(id + "-done", "1");
+  });
+}
+
 let stateSplitDay = DATA[0] ? DATA[0].date : todayISO;
 
 function selectSplitDay(date){
@@ -3107,7 +3234,11 @@ function selectSplitDay(date){
   splitMaps = {};
   stateSplitDay = date;
   appView.innerHTML = renderSplitView();
-  setTimeout(initSplitMaps, 50);
+  setTimeout(() => {
+    initSplitMaps();
+    initSplitProfils();
+    initSplitRoadbooks();
+  }, 50);
 }
 
 // ---- VUE 3 : GRILLE SEMAINE ----
