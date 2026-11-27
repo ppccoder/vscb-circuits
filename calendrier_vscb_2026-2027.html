@@ -348,7 +348,7 @@
       <button class="btn" id="parcBtn" title="Vos parcours roulés importés : liste, sauvegarde JSON, chargement">💾 Mes parcours</button>
       <button class="btn" id="effBtn" title="Nombre de cyclistes par sortie : saisie, sauvegarde JSON, chargement">👥 Effectifs</button>
       <button class="btn" id="helpBtn" title="Aide : explications des fonctionnalités du calendrier">📖 Aide</button>
-      <button class="btn" id="vueBtn" title="Basculer entre vue Calendrier et vue Carte">👁️ Vue</button>
+      <button class="btn" id="vueBtn" title="Basculer entre vue Calendrier et vue Carte" onclick="toggleVue()">👁️ Vue</button>
       <button class="btn" id="joursBtn" title="Filtrer l'affichage par jours de la semaine">📅 Jours</button>
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
@@ -2858,13 +2858,10 @@ function renderVue(){
   window.vueView.innerHTML = html;
 }
 
-window.vueBtn.addEventListener("click", toggleVue);
+// vueBtn géré par onclick="toggleVue()" dans le HTML
 
 // Re-render la vue quand les filtres changent
-const _filtreCommune = document.getElementById("filtre-commune");
-const _filtreVent = document.getElementById("filtre-vent");
-if(_filtreCommune)_filtreCommune.addEventListener("input", ()=>{ if(window.viewModeVue) renderVue(); });
-if(_filtreVent)_filtreVent.addEventListener("change", ()=>{ if(window.viewModeVue) renderVue(); });
+
 
 </script>
 </body>
