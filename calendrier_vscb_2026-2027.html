@@ -277,6 +277,32 @@
     header h1 .logo{height:34px}
     header h1 .titre{white-space:nowrap;font-size:clamp(.66rem,4vw,1.12rem);letter-spacing:0}
   }
+
+  /* ---- Vue Carte (mode vue) ----
+     Chaque circuit s'affiche dans une carte dédiée avec :
+     - à gauche : carte GPX (placeholder pour l'instant)
+     - à droite : infos, météo, communes
+  */
+  #vueView{display:none;max-width:1100px;margin:20px auto;padding:0 12px}
+  #vueView .vue-container{display:flex;gap:16px;margin-bottom:24px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #vueView .vue-carte{flex:0 0 340px;height:260px;background:#f1f5f9;border-right:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:.9rem}
+  #vueView .vue-infos{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px}
+  #vueView .vue-titre{font-size:1.25rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:10px}
+  #vueView .vue-km{font-size:1rem;font-weight:600;color:#0ea5e9}
+  #vueView .vue-d{font-size:1rem;font-weight:600;color:#c2410c}
+  #vueView .vue-ori{font-size:1rem;font-weight:600;color:#1e3a8a}
+  #vueView .vue-eff{font-size:1rem;color:#1e3a8a}
+  #vueView .vue-sep{border-top:1px solid #e2e8f0;margin:12px 0}
+  #vueView .vue-meteo{display:flex;align-items:center;gap:8px;font-size:.9rem;color:#475569}
+  #vueView .vue-communes{display:flex;flex-wrap:wrap;gap:6px}
+  #vueView .vue-commune{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:3px 10px;font-size:.8rem;color:#334155}
+  /* Vue circuit ouvert (non-roulé) */
+  #vueView .vue-vide{display:flex;align-items:center;justify-content:center;height:260px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;color:#64748b}
+  /* Boutons de vue dans toolbar */
+  #vueBtn.actif{background:#1e3a8a;color:#fff;border-color:#1e3a8a}
+  /* Masquer certains boutons en mode vue */
+  #vueView.mode-vue #ventBtn,#vueView.mode-vue #effBtn,#vueView.mode-vue #parcBtn{display:none}
+
 </style>
 </head>
 <body>
@@ -322,6 +348,7 @@
       <button class="btn" id="parcBtn" title="Vos parcours roulés importés : liste, sauvegarde JSON, chargement">💾 Mes parcours</button>
       <button class="btn" id="effBtn" title="Nombre de cyclistes par sortie : saisie, sauvegarde JSON, chargement">👥 Effectifs</button>
       <button class="btn" id="helpBtn" title="Aide : explications des fonctionnalités du calendrier">📖 Aide</button>
+      <button class="btn" id="vueBtn" title="Basculer entre vue Calendrier et vue Carte">👁️ Vue</button>
       <button class="btn" id="joursBtn" title="Filtrer l'affichage par jours de la semaine">📅 Jours</button>
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
@@ -340,6 +367,7 @@
   <div id="listView"></div>
   <div id="circHead"></div>
   <div id="circView"></div>
+  <div id="vueView"></div>
   <div id="rbView"></div>
   <div id="ventPanel" role="dialog" aria-label="Filtre circuits selon le vent">
     <button class="vfermer" id="ventClose" title="Fermer">✕</button>
@@ -466,7 +494,6 @@ function evDe(iso){                      // entrée calendrier de la date (cré�
 const grid = document.getElementById("grid");
 const overlay = document.getElementById("overlay");
 const resultsBox = document.getElementById("results");
-const calView = document.getElementById("calView");
 let cur = new Date(2026, 9, 1); // octobre 2026
 
 const todayISO = new Date().toLocaleDateString("sv-SE");
@@ -2755,6 +2782,88 @@ joursOk.onclick = () => {
 joursModal.addEventListener("click", e => {
   if (e.target === joursModal) joursModal.style.display = "none";
 });
+
+
+// ---- Vue Carte : affichage alternatif des circuits ----
+const vueView = document.getElementById("vueView");
+const calView = document.getElementById("calView");
+const vueBtn = document.getElementById("vueBtn");
+
+function toggleVue(){
+  viewModeVue = !viewModeVue;
+  if(viewModeVue){
+    calView.style.display = "none";
+    vueView.style.display = "block";
+    vueBtn.classList.add("actif");
+    renderVue();
+  } else {
+    vueView.style.display = "none";
+    calView.style.display = "";
+    vueBtn.classList.remove("actif");
+  }
+}
+
+vueBtn.onclick = toggleVue;
+
+function renderVue(){
+  if(!viewModeVue) return;
+  const q = document.getElementById("filtre-commune") ? document.getElementById("filtre-commune").value.trim() : "";
+  const ventF = document.getElementById("filtre-vent") ? document.getElementById("filtre-vent").value : "all";
+
+  let html = '';
+  DATA.forEach(day => {
+    day.circuits.forEach(c => {
+      // filtre commune
+      if(q && !c.route.toLowerCase().includes(q.toLowerCase())) return;
+      // filtre vent
+      if(ventF !== "all"){
+        const t = TRACKS[tk(day.date, c)] || {};
+        const ori = t.ori || "";
+        if(!ori.includes(ventF)) return;
+      }
+      const t = TRACKS[tk(day.date, c)] || {};
+      const isImported = !!IMPORTS[tk(day.date, c)];
+      const effKey = tk(day.date, c);
+      const effVal = EFFETIFS[effKey];
+      const effHtml = effVal ? `<span style="font-size:0.7rem; color:#1e3a8a; margin-left:6px;">${effVal} cycliste${effVal>1?'s':''}</span>` : '';
+
+      html += `<div class="vue-container">
+        <div class="vue-carte">
+          <div class="vue-vide">🗺️ Carte<br>${escX(c.label)}</div>
+        </div>
+        <div class="vue-infos">
+          <div class="vue-titre">
+            ${c.roule ? "🚴" : "🏍️"} ${escX(c.label)}${isImported ? " (importé)" : ""}
+          </div>
+          <div style="display:flex;gap:12px;font-size:0.9rem;">
+            <span class="vue-km">${c.km} km</span>
+            <span class="vue-d">D+ ${t.asc || 0} m</span>
+            <span class="vue-ori">${t.ori || "—"}</span>
+            ${effHtml}
+          </div>
+          <div class="vue-sep"></div>
+          <div class="vue-meteo">
+            ${METEO[day.date] ? '🌡️ ' + METEO[day.date].t + '° · ' + METEO[day.date].w + ' km/h' : '—'}
+          </div>
+          <div class="vue-communes">
+            ${(c.stops || c.route.split(" – ")).map(s => `<span class="vue-commune">${escX(s)}</span>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+
+  if(!html){
+    html = '<div style="text-align:center;padding:40px;color:#64748b;">Aucun circuit ne correspond aux filtres.</div>';
+  }
+  vueView.innerHTML = html;
+}
+
+// Re-render la vue quand les filtres changent
+const _filtreCommune = document.getElementById("filtre-commune");
+const _filtreVent = document.getElementById("filtre-vent");
+if(_filtreCommune)_filtreCommune.addEventListener("input", ()=>{ if(viewModeVue) renderVue(); });
+if(_filtreVent)_filtreVent.addEventListener("change", ()=>{ if(viewModeVue) renderVue(); });
 
 </script>
 </body>
