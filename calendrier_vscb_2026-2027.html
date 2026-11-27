@@ -2785,29 +2785,27 @@ joursModal.addEventListener("click", e => {
 
 
 // ---- Vue Carte : affichage alternatif des circuits ----
-// ---- Vue Carte : affichage alternatif des circuits ----
-const vueView = document.getElementById("vueView");
-const calView = document.getElementById("calView");
-const vueBtn = document.getElementById("vueBtn");
+window.viewModeVue = false;
+window.vueView = null;
+window.calView = null;
+window.vueBtn = null;
 
 function toggleVue(){
-  viewModeVue = !viewModeVue;
-  if(viewModeVue){
-    calView.style.display = "none";
-    vueView.style.display = "block";
-    vueBtn.classList.add("actif");
+  window.viewModeVue = !window.viewModeVue;
+  if(window.viewModeVue){
+    window.calView.style.display = "none";
+    window.vueView.style.display = "block";
+    window.vueBtn.classList.add("actif");
     renderVue();
   } else {
-    vueView.style.display = "none";
-    calView.style.display = "";
-    vueBtn.classList.remove("actif");
+    window.vueView.style.display = "none";
+    window.calView.style.display = "";
+    window.vueBtn.classList.remove("actif");
   }
 }
 
-vueBtn.addEventListener("click", toggleVue);
-
 function renderVue(){
-  if(!viewModeVue) return;
+  if(!window.viewModeVue) return;
   const q = document.getElementById("filtre-commune") ? document.getElementById("filtre-commune").value.trim() : "";
   const ventF = document.getElementById("filtre-vent") ? document.getElementById("filtre-vent").value : "all";
 
@@ -2857,14 +2855,16 @@ function renderVue(){
   if(!html){
     html = '<div style="text-align:center;padding:40px;color:#64748b;">Aucun circuit ne correspond aux filtres.</div>';
   }
-  vueView.innerHTML = html;
+  window.vueView.innerHTML = html;
 }
+
+window.vueBtn.addEventListener("click", toggleVue);
 
 // Re-render la vue quand les filtres changent
 const _filtreCommune = document.getElementById("filtre-commune");
 const _filtreVent = document.getElementById("filtre-vent");
-if(_filtreCommune)_filtreCommune.addEventListener("input", ()=>{ if(viewModeVue) renderVue(); });
-if(_filtreVent)_filtreVent.addEventListener("change", ()=>{ if(viewModeVue) renderVue(); });
+if(_filtreCommune)_filtreCommune.addEventListener("input", ()=>{ if(window.viewModeVue) renderVue(); });
+if(_filtreVent)_filtreVent.addEventListener("change", ()=>{ if(window.viewModeVue) renderVue(); });
 
 </script>
 </body>
