@@ -256,6 +256,16 @@
   #ventRes .res.selv{background:var(--accent-soft);border-color:var(--accent)}
   .selbadge{background:var(--accent);color:#fff;border-radius:99px;padding:1px 8px;font-size:.72rem;font-weight:600;margin-left:6px;vertical-align:1px}
   mark{background:#ffe9a8;border-radius:3px;padding:0 1px}
+
+  /* Masquage des jours non sélectionnés */
+  .jour-cache{display:none !important}
+  /* Modale sélection jours */
+  #joursModal{display:none;position:fixed;z-index:1300;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+  #joursModal .modal-content{background:#fff;border-radius:12px;padding:20px;min-width:300px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  #joursModal h3{margin-top:0;margin-bottom:15px;font-size:1.1rem}
+  #joursModal .jours-liste{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+  #joursModal .jour-case{display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer}
+  #joursModal .jours-boutons{display:flex;justify-content:flex-end;gap:10px}
   @media (max-width:640px){
     .cell{min-height:58px;padding:4px 5px}
     .chip{font-size:.6rem;padding:1px 4px}
@@ -283,6 +293,25 @@
 <input type="file" id="jsonImport" accept=".json,application/json" style="display:none">
 <input type="file" id="jsonEffImport" accept=".json,application/json" style="display:none">
 
+<div id="joursModal">
+  <div class="modal-content">
+    <h3>📅 Jours de la semaine</h3>
+    <div class="jours-liste">
+      <label class="jour-case"><input type="checkbox" data-dow="0" checked>Dimanche</label>
+      <label class="jour-case"><input type="checkbox" data-dow="1" checked>Lundi</label>
+      <label class="jour-case"><input type="checkbox" data-dow="2" checked>Mardi</label>
+      <label class="jour-case"><input type="checkbox" data-dow="3" checked>Mercredi</label>
+      <label class="jour-case"><input type="checkbox" data-dow="4" checked>Jeudi</label>
+      <label class="jour-case"><input type="checkbox" data-dow="5" checked>Vendredi</label>
+      <label class="jour-case"><input type="checkbox" data-dow="6" checked>Samedi</label>
+    </div>
+    <div class="jours-boutons">
+      <button class="btn" id="joursAnnuler">Annuler</button>
+      <button class="btn btn-vert" id="joursOk">OK</button>
+    </div>
+  </div>
+</div>
+
 <main class="wrap">
   <div id="topbar" class="topbar">
     <div class="toolbar">
@@ -293,6 +322,7 @@
       <button class="btn" id="parcBtn" title="Vos parcours roulés importés : liste, sauvegarde JSON, chargement">💾 Mes parcours</button>
       <button class="btn" id="effBtn" title="Nombre de cyclistes par sortie : saisie, sauvegarde JSON, chargement">👥 Effectifs</button>
       <button class="btn" id="helpBtn" title="Aide : explications des fonctionnalités du calendrier">📖 Aide</button>
+      <button class="btn" id="joursBtn" title="Filtrer l'affichage par jours de la semaine">📅 Jours</button>
       <div id="circActions" style="display:none"></div>
       <div id="rbActions" style="display:none"><button class="btn" id="rbPrint">🖨️ Imprimer / PDF</button><button class="btn" id="rbBack" style="border-color:#c0392b;background:#fdecea;color:#8f2418">↩ Retour</button></div>
     </div>
@@ -440,6 +470,7 @@ const calView = document.getElementById("calView");
 let cur = new Date(2026, 9, 1); // octobre 2026
 
 const todayISO = new Date().toLocaleDateString("sv-SE");
+let joursSelectionnes = new Set([0,1,2,3,4,5,6]);   // jours de la semaine affichés (0=dimanche, 6=samedi)
 
 // ---- Liste verticale : une ligne par journée, mois enchaînés au défilement ----
 let vus = [];                                   // mois rendus, dans l'ordre : ["2026-10","2026-11",…]
@@ -468,6 +499,7 @@ function ligneJour(iso){                        // une ligne = une journée
   row.className = "drow" + (ev && ev.circuits.length ? " has " + (dim ? "dim" : "mar") : " off");
   if (iso === todayISO) row.classList.add("today");
   row.dataset.iso = iso;
+  if (!joursSelectionnes.has(j)) row.classList.add("jour-cache");
   const dd = document.createElement("div");
   dd.className = "ddate";
   dd.innerHTML = '<span class="dnum">' + Number(iso.slice(8, 10)) + '</span><span class="dwd">'
@@ -2693,6 +2725,36 @@ majVueEff();
 history.scrollRestoration = "manual";
 history.replaceState({ vue: "cal" }, "");
 window.addEventListener("popstate", e => restaurerVue(e.state));
+
+
+// ---- Sélecteur de jours de la semaine ----
+const joursModal = document.getElementById("joursModal");
+const joursBtn = document.getElementById("joursBtn");
+const joursOk = document.getElementById("joursOk");
+const joursAnnuler = document.getElementById("joursAnnuler");
+
+joursBtn.onclick = () => {
+  joursModal.style.display = "flex";
+};
+
+joursAnnuler.onclick = () => {
+  joursModal.style.display = "none";
+};
+
+joursOk.onclick = () => {
+  const checks = joursModal.querySelectorAll("input[type='checkbox']");
+  joursSelectionnes = new Set();
+  checks.forEach(cb => {
+    if (cb.checked) joursSelectionnes.add(Number(cb.dataset.dow));
+  });
+  joursModal.style.display = "none";
+  renderMonth();   // recharger l'affichage avec le filtre
+};
+
+// Fermer en cliquant à l'extérieur de la modale
+joursModal.addEventListener("click", e => {
+  if (e.target === joursModal) joursModal.style.display = "none";
+});
 
 </script>
 </body>
